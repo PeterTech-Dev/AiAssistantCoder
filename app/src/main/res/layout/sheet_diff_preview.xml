@@ -7,24 +7,23 @@
     android:background="@android:color/white"
     android:padding="12dp">
 
-    <!-- Header: shows + / - counts -->
+    <!-- HEADER: will show "game/main.py · +12 · −3" -->
     <TextView
         android:id="@+id/diff_summary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="+0 · −0"
+        android:text="Changes · +0 · −0"
         android:textStyle="bold"
         android:textSize="14sp"
+        android:textColor="#FF000000"
         android:paddingBottom="8dp" />
 
-    <!-- List of changes -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/diff_list"
         android:layout_width="match_parent"
         android:layout_height="240dp"
         android:overScrollMode="ifContentScrolls" />
 
-    <!-- Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

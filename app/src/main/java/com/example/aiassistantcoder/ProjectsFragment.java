@@ -1,13 +1,17 @@
 package com.example.aiassistantcoder;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -15,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.Collections;
@@ -27,6 +32,7 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
     private View projectsLayoutContent;
     private TextView loginPromptText;
     private RecyclerView projectsRecyclerView;
+    private FloatingActionButton fabNewProject;   // 👈 new
 
     @Nullable
     @Override
@@ -36,6 +42,7 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
         projectsLayoutContent = view.findViewById(R.id.projects_layout_content);
         loginPromptText = view.findViewById(R.id.login_prompt_text);
         projectsRecyclerView = view.findViewById(R.id.projects_recycler_view);
+        fabNewProject = view.findViewById(R.id.fab_new_project); // 👈 new
 
         return view;
     }
@@ -44,6 +51,7 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         setupProjectsList(view);
+        setupFab(); // 👈 new
     }
 
     @Override
@@ -61,6 +69,7 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
 
     @Override
     public void onChanged(List<Project> projects) {
+        // refresh adapter when repo notifies
         adapter = new ProjectAdapter(projects);
         projectsRecyclerView.setAdapter(adapter);
     }
@@ -100,10 +109,46 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
         });
     }
 
+    // 👇 new
+    private void setupFab() {
+        if (fabNewProject == null) return;
+        fabNewProject.setOnClickListener(v -> {
+            // dialog for project name
+            final EditText input = new EditText(requireContext());
+            input.setHint("Project name");
+            input.setInputType(InputType.TYPE_CLASS_TEXT);
+
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("New project")
+                    .setView(input)
+                    .setPositiveButton("Create", (d, which) -> {
+                        String title = input.getText().toString().trim();
+                        if (title.isEmpty()) return;
+
+                        ProjectRepository.getInstance()
+                                .createEmptyProject(title, new ProjectRepository.ProjectSaveCallback() {
+                                    @Override
+                                    public void onSaved(String projectId) {
+                                        // optional: open it right away
+                                        // or just rely on realtime listener to show
+                                        Toast.makeText(requireContext(), "Project created", Toast.LENGTH_SHORT).show();
+                                    }
+
+                                    @Override
+                                    public void onError(Exception e) {
+                                        Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+    }
+
     private void sortProjects(String criteria) {
         List<Project> currentProjects = ProjectRepository.getInstance().getProjects();
         if ("Name".equals(criteria)) {
-            Collections.sort(currentProjects, Comparator.comparing(Project::getTitle));
+            Collections.sort(currentProjects, Comparator.comparing(Project::getTitle, String.CASE_INSENSITIVE_ORDER));
         } else { // Date
             Collections.sort(currentProjects, (p1, p2) -> p2.getDate().compareTo(p1.getDate()));
         }

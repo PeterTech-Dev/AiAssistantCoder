@@ -66,9 +66,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         return messages.size();
     }
 
-    // ----------------------------------------
     // ViewHolder
-    // ----------------------------------------
     static class ChatViewHolder extends RecyclerView.ViewHolder {
 
         // Common bubble
@@ -235,7 +233,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
             if (p.filePath != null && !p.filePath.isEmpty()) {
                 String current = parsedNotes.getText().toString();
-                parsedNotes.setText(current + "\n\nFile: " + p.filePath);
+                parsedNotes.setText(current + "\n\nFile: " + normalizeFilePath("", p.filePath));
             }
 
             boolean tooLong = countLines(code) > 16;
@@ -413,12 +411,8 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                     String content  = f0.has("content")  ? f0.get("content").getAsString()  : "";
 
                     p.code = content != null ? content : "";
+                    p.filePath = normalizeFilePath(path, filename);
 
-                    if (path != null && !path.isEmpty() && !path.equals(".")) {
-                        p.filePath = path + "/" + filename;
-                    } else {
-                        p.filePath = filename;
-                    }
                 } else {
                     p.code = obj.has("code") ? obj.get("code").getAsString() : "";
                 }
@@ -435,6 +429,25 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 Log.w(TAG, "tryParsePayload(): failed to parse JSON payload");
                 return null;
             }
+        }
+
+        // normalize model paths like ".", "./", ".//", "/main.py" → to something clean
+        private String normalizeFilePath(String path, String filename) {
+            String p = path == null ? "" : path.trim();
+            String f = filename == null ? "" : filename.trim();
+
+            if (p.equals(".") || p.equals("./") || p.equals(".//")) {
+                p = "";
+            }
+            while (p.startsWith("./")) p = p.substring(2);
+            while (p.startsWith("/"))  p = p.substring(1);
+            while (f.startsWith("./")) f = f.substring(2);
+            while (f.startsWith("/"))  f = f.substring(1);
+
+            if (p.isEmpty()) {
+                return f;
+            }
+            return p + "/" + f;
         }
 
     }

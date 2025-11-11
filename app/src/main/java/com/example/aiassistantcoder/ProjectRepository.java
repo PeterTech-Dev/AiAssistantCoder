@@ -55,7 +55,10 @@ public class ProjectRepository {
 
     public void saveProjectToFirestore(Project project, ProjectSaveCallback cb) {
         FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
-        if (u == null) { cb.onError(new IllegalStateException("Not signed in")); return; }
+        if (u == null) {
+            if (cb != null) cb.onError(new IllegalStateException("Not signed in"));
+            return;
+        }
 
         Map<String, Object> data = new HashMap<>();
         data.put("title", project.getTitle());
@@ -63,6 +66,7 @@ public class ProjectRepository {
         data.put("tags", project.getTags());
         data.put("code", project.getCode());
 
+        // messages
         List<Map<String, Object>> msgs = new ArrayList<>();
         for (Message m : project.getMessages()) {
             Map<String, Object> mm = new HashMap<>();
@@ -73,22 +77,49 @@ public class ProjectRepository {
         }
         data.put("messages", msgs);
 
-        CollectionReference projectsCollection = db.collection("users").document(u.getUid()).collection("projects");
+        List<Map<String, Object>> filesData = new ArrayList<>();
+        if (project.getFiles() != null) {
+            for (ProjectFile f : project.getFiles()) {
+                Map<String, Object> fm = new HashMap<>();
+                fm.put("path", f.path);
+                fm.put("content", f.content);
+                filesData.add(fm);
+            }
+        }
+        data.put("files", filesData);
+
+        CollectionReference projectsCollection =
+                db.collection("users").document(u.getUid()).collection("projects");
 
         if (project.getId() != null) {
+            // ← UPDATE EXISTING DOC
             projectsCollection.document(project.getId()).set(data)
-                    .addOnSuccessListener(aVoid -> cb.onSaved(project.getId()))
-                    .addOnFailureListener(cb::onError);
+                    .addOnSuccessListener(aVoid -> {
+                        // update in-memory copy too
+                        for (int i = 0; i < projects.size(); i++) {
+                            if (projects.get(i).getId().equals(project.getId())) {
+                                projects.set(i, project);  // now includes files
+                                break;
+                            }
+                        }
+                        notifyListeners();
+                        if (cb != null) cb.onSaved(project.getId());
+                    })
+                    .addOnFailureListener(e -> {
+                        if (cb != null) cb.onError(e);
+                    });
         } else {
             projectsCollection.add(data)
                     .addOnSuccessListener(ref -> {
                         project.setId(ref.getId());
-                        project.setCreatedAt(new Date()); // temp; server time will overwrite on next snapshot
+                        project.setCreatedAt(new Date());
                         projects.add(0, project);
                         notifyListeners();
-                        cb.onSaved(ref.getId());
+                        if (cb != null) cb.onSaved(ref.getId());
                     })
-                    .addOnFailureListener(cb::onError);
+                    .addOnFailureListener(e -> {
+                        if (cb != null) cb.onError(e);
+                    });
         }
     }
 
@@ -132,6 +163,16 @@ public class ProjectRepository {
                             }
                         }
                         projects.add(p);
+                        List<Map<String, Object>> filesData = (List<Map<String, Object>>) d.get("files");
+                        if (filesData != null) {
+                            List<ProjectFile> fileList = new ArrayList<>();
+                            for (Map<String, Object> fMap : filesData) {
+                                String path = (String) fMap.get("path");
+                                String content = (String) fMap.get("content");
+                                fileList.add(new ProjectFile(path, content));
+                            }
+                            p.setFiles(fileList);
+                        }
                     }
                     notifyListeners();
                 });
@@ -154,5 +195,69 @@ public class ProjectRepository {
         }
         projects.clear();
         notifyListeners();
+    }
+
+    public void createEmptyProject(String title, ProjectSaveCallback cb) {
+        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+        if (u == null) {
+            if (cb != null) cb.onError(new IllegalStateException("Not signed in"));
+            return;
+        }
+
+        Project p = new Project(title);     // messages = [], files = [], code = null
+        Map<String, Object> data = new HashMap<>();
+        data.put("title", title);
+        data.put("createdAt", FieldValue.serverTimestamp());
+        data.put("tags", new ArrayList<String>());
+        data.put("code", "");
+        data.put("messages", new ArrayList<>());  // empty
+        data.put("files", new ArrayList<>());     // empty
+
+        db.collection("users").document(u.getUid())
+                .collection("projects")
+                .add(data)
+                .addOnSuccessListener(ref -> {
+                    p.setId(ref.getId());
+                    p.setCreatedAt(new Date());
+                    projects.add(0, p);
+                    notifyListeners();
+                    if (cb != null) cb.onSaved(ref.getId());
+                })
+                .addOnFailureListener(e -> {
+                    if (cb != null) cb.onError(e);
+                });
+    }
+
+    public void renameProject(Project project, String newTitle, ProjectSaveCallback cb) {
+        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+        if (u == null) {
+            if (cb != null) cb.onError(new IllegalStateException("Not signed in"));
+            return;
+        }
+        if (project.getId() == null) {
+            if (cb != null) cb.onError(new IllegalStateException("Project has no id"));
+            return;
+        }
+
+        db.collection("users").document(u.getUid())
+                .collection("projects")
+                .document(project.getId())
+                .update("title", newTitle)
+                .addOnSuccessListener(aVoid -> {
+                    // update local object
+                    project.setTitle(newTitle);
+                    // also update the list entry
+                    for (int i = 0; i < projects.size(); i++) {
+                        if (projects.get(i).getId().equals(project.getId())) {
+                            projects.set(i, project);
+                            break;
+                        }
+                    }
+                    notifyListeners();
+                    if (cb != null) cb.onSaved(project.getId());
+                })
+                .addOnFailureListener(e -> {
+                    if (cb != null) cb.onError(e);
+                });
     }
 }

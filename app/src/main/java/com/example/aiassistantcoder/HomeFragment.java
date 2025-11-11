@@ -198,7 +198,6 @@ public class HomeFragment extends Fragment {
         JsonObject generationConfig = new JsonObject();
         generationConfig.addProperty("responseMimeType", "application/json");
         generationConfig.add("responseSchema", buildResponseSchema());
-        generationConfig.addProperty("maxOutputTokens", 2048);
 
         // ---- Full request ----
         JsonObject payload = new JsonObject();
@@ -318,7 +317,9 @@ public class HomeFragment extends Fragment {
                         Log.d(TAG, "submitToGemini: aiCode length -> " + (aiCode != null ? aiCode.length() : 0));
                     }
                 } catch (JsonSyntaxException ex) {
+                    // debugger
                     Log.w(TAG, "Model returned non-JSON; passing raw text");
+
                     aiCode = modelText;
                     display = modelText;
 
@@ -337,24 +338,28 @@ public class HomeFragment extends Fragment {
                 getActivity().runOnUiThread(() -> {
                     loadingIndicator.setVisibility(View.GONE);
 
-                    // debugger
                     Log.d(TAG, "submitToGemini: launching ResponseActivity with query=" + query);
 
                     Intent intent = new Intent(getActivity(), ResponseActivity.class);
+
                     if (FirebaseAuth.getInstance().getCurrentUser() != null) {
                         Project newProject = new Project(query);
                         newProject.addMessage(new Message(query, "user"));
                         newProject.addMessage(new Message(finalDisplay, "model"));
-                        ProjectRepository.getInstance().saveProjectToFirestore(newProject,
+
+                        ProjectRepository.getInstance().saveProjectToFirestore(
+                                newProject,
                                 new ProjectRepository.ProjectSaveCallback() {
                                     @Override public void onSaved(String projectId) {
-                                        // debugger
                                         Log.d(TAG, "submitToGemini: project saved, id=" + projectId);
                                         intent.putExtra("projectTitle", newProject.getTitle());
                                         pushAiExtras(intent, finalAiCode, finalAiLanguage, finalAiRuntime, finalAiNotes);
                                         intent.putExtra("response", finalDisplay);
+                                        intent.putExtra("ai_project_json", modelText);
+
                                         startActivity(intent);
                                     }
+
                                     @Override public void onError(Exception e) {
                                         Log.e(TAG, "submitToGemini: project save error", e);
                                         Toast.makeText(getContext(),
@@ -366,12 +371,15 @@ public class HomeFragment extends Fragment {
                         intent.putExtra("query", query);
                         intent.putExtra("response", finalDisplay);
                         pushAiExtras(intent, finalAiCode, finalAiLanguage, finalAiRuntime, finalAiNotes);
+                        intent.putExtra("ai_project_json", modelText);
+
                         startActivity(intent);
                     }
 
                     selectedImageBitmap = null;
                     imagePreviewContainer.setVisibility(View.GONE);
                 });
+
 
             } catch (Exception e) {
                 Log.e(TAG, "Request failure", e);

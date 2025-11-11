@@ -262,11 +262,16 @@ public class ChatFragment extends Fragment {
 // debugger
                 Log.d(TAG, "CHAT_MODEL_TEXT (after extractTextFromCandidates): " + modelText);
 
+                // inside the background thread, after you got modelText
                 String aiCode     = "";
                 String aiLanguage = "";
                 String aiRuntime  = "";
                 String aiNotes    = "";
-                String display    = modelText;  // fallback
+                String entrypoint = "";
+                String display    = modelText;
+
+// NEW: a place to store all files for the editor
+                List<AiUpdateViewModel.ProjectFile> vmFiles = new ArrayList<>();
 
                 try {
                     JsonObject obj = gson.fromJson(modelText, JsonObject.class);
@@ -274,25 +279,15 @@ public class ChatFragment extends Fragment {
                         aiLanguage = safeString(obj, "language");
                         aiRuntime  = safeString(obj, "runtime");
                         aiNotes    = safeString(obj, "notes");
+                        entrypoint = safeString(obj, "entrypoint");
 
                         StringBuilder sb = new StringBuilder();
 
-                        // header
-                        if (!aiLanguage.isEmpty()) {
-                            sb.append("**Language:** ").append(aiLanguage).append("\n");
-                        }
-                        if (!aiRuntime.isEmpty()) {
-                            sb.append("**Runtime:** ").append(aiRuntime).append("\n");
-                        }
-                        String entrypoint = safeString(obj, "entrypoint");
-                        if (!entrypoint.isEmpty()) {
-                            sb.append("**Entrypoint:** ").append(entrypoint).append("\n");
-                        }
-                        if (!aiNotes.isEmpty()) {
-                            sb.append("\n").append(aiNotes).append("\n\n");
-                        }
+                        if (!aiLanguage.isEmpty()) sb.append("**Language:** ").append(aiLanguage).append("\n");
+                        if (!aiRuntime.isEmpty())  sb.append("**Runtime:** ").append(aiRuntime).append("\n");
+                        if (!entrypoint.isEmpty()) sb.append("**Entrypoint:** ").append(entrypoint).append("\n");
+                        if (!aiNotes.isEmpty())    sb.append("\n").append(aiNotes).append("\n\n");
 
-                        // files
                         if (obj.has("files") && obj.get("files").isJsonArray()) {
                             JsonArray filesArr = obj.getAsJsonArray("files");
 
@@ -305,10 +300,18 @@ public class ChatFragment extends Fragment {
                                 String summary = safeString(fObj, "summary");
                                 String content = safeString(fObj, "content");
 
-                                // keep first file's code for editor
+                                // keep first file’s content for backward-compat single-file editor
                                 if (i == 0) {
                                     aiCode = content;
                                 }
+
+                                // collect for ViewModel (this is the NEW part)
+                                vmFiles.add(new AiUpdateViewModel.ProjectFile(
+                                        path,
+                                        fname,
+                                        summary,
+                                        content
+                                ));
 
                                 String fullPath;
                                 if (path != null && !path.isEmpty() && !path.equals(".")) {
@@ -332,10 +335,6 @@ public class ChatFragment extends Fragment {
                         }
 
                         display = sb.toString().trim();
-
-                        // debugger
-                        Log.d(TAG, "CHAT_DISPLAY (what we will show in chat): " + display);
-
                     }
                 } catch (JsonSyntaxException ex) {
                     Log.w(TAG, "Model returned non-JSON; showing raw text");
@@ -347,11 +346,12 @@ public class ChatFragment extends Fragment {
 
                 }
 
-                String finalDisplay    = display;
-                String finalAiCode     = aiCode;
+                String finalEntrypoint = entrypoint;
                 String finalAiLanguage = aiLanguage;
                 String finalAiRuntime  = aiRuntime;
                 String finalAiNotes    = aiNotes;
+                String finalAiCode     = aiCode;
+                String finalDisplay    = display;
 
                 requireActivity().runOnUiThread(() -> {
                     loadingIndicator.setVisibility(View.GONE);
@@ -369,12 +369,25 @@ public class ChatFragment extends Fragment {
                     chatRecyclerView.scrollToPosition(chatAdapter.getItemCount() - 1);
 
                     // push to editor
-                    aiBus.publish(
-                            finalAiLanguage,
-                            finalAiRuntime,
-                            finalAiNotes,
-                            finalAiCode
-                    );
+                    if (vmFiles.isEmpty()) {
+                        aiBus.publish(
+                                finalAiLanguage,
+                                finalAiRuntime,
+                                finalAiNotes,
+                                finalAiCode
+                        );
+                    } else {
+                        aiBus.publishProject(
+                                new AiUpdateViewModel.ProjectUpdate(
+                                        finalAiLanguage,
+                                        finalAiRuntime,
+                                        finalEntrypoint,
+                                        vmFiles,
+                                        finalAiNotes
+                                )
+                        );
+                    }
+
 
                     // save project
                     if (FirebaseAuth.getInstance().getCurrentUser() != null) {

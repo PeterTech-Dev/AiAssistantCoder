@@ -1,16 +1,21 @@
 package com.example.aiassistantcoder;
 
+import com.example.aiassistantcoder.LiveRunManager;
+
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
-import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewParent;
+import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,10 +25,9 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import android.view.KeyEvent;
 
+import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.google.android.material.chip.Chip;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -46,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.LinkedHashMap;
 
 import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.event.ContentChangeEvent;
@@ -57,13 +62,12 @@ import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry;
 import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry;
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver;
 import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel;
-import io.github.rosemoe.sora.widget.schemes.EditorColorScheme;
 import org.eclipse.tm4e.core.registry.IThemeSource;
 
 import okhttp3.OkHttpClient;
+import okhttp3.WebSocket;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import okio.ByteString;
 
@@ -73,12 +77,43 @@ public class CodeEditorFragment extends Fragment {
     private CodeEditor codeEditor;
     private FloatingActionButton btnRun;
     private ProgressBar progress;
-    private Chip toggleAuto, toggleJudge0, toggleLive;
+
+    // 2-finger swipe / UI
+    private float twoFingerStartX = 0f;
+    private boolean twoFingerTracking = false;
+    private static final float TWO_FINGER_SWIPE_THRESHOLD = 120f; // px
+
+    // file / tabs UI
+    private View filesPanel;
+    private LinearLayout filesListContainer;
+    private TabLayout tabLayout;
+    private ImageButton btnAddFile;
+    private ImageButton btnToggleFilesPanel;
+    private ImageButton btnCloseTab;
+
+    // file model
+    private final List<OpenFile> availableFiles = new ArrayList<>();
+    private final Map<String, OpenFile> openTabs = new LinkedHashMap<>();
+    private final Map<String, Boolean> aiManagedFiles = new HashMap<>();
+    private FilesAdapter filesAdapter;
 
     // Diff bottom sheet
     private BottomSheetDialog diffDialog;
     private DiffAdapter diffAdapter;
     private final List<DiffLine> currentDiff = new ArrayList<>();
+    private final List<PendingFileDiff> pendingFileDiffs = new ArrayList<>();
+    private @Nullable String currentDiffFileId = null;
+    private @Nullable TextView diffHeaderView = null;
+    private static final class PendingFileDiff {
+        final String fileId;
+        final String newContent;
+        final List<DiffLine> diff;
+        PendingFileDiff(String fileId, String newContent, List<DiffLine> diff) {
+            this.fileId = fileId;
+            this.newContent = newContent;
+            this.diff = diff;
+        }
+    }
     private @Nullable Runnable onAcceptAction;
     private @Nullable String queuedNewCode;
 
@@ -87,34 +122,19 @@ public class CodeEditorFragment extends Fragment {
     private AiUpdateViewModel aiBus;
     private @Nullable SubscriptionReceipt<ContentChangeEvent> contentSub = null;
 
+    private @Nullable OpenFile getCurrentOpenFile() {
+        if (tabLayout == null) return null;
+        int idx = tabLayout.getSelectedTabPosition();
+        if (idx < 0) return null;
+        TabLayout.Tab tab = tabLayout.getTabAt(idx);
+        if (tab == null) return null;
+        Object tag = tab.getTag();
+        return (tag instanceof OpenFile) ? (OpenFile) tag : null;
+    }
+
     // ---- Exec / handlers ----
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
-
-    // =================== AUTOCOMPLETE (LOCAL / STUB) ===================
-    private static final long AC_IDLE_MS = 300L;
-    private final Handler acHandler = new Handler(Looper.getMainLooper());
-    private final ArrayList<String> acSuggestions = new ArrayList<>();
-    private String acLastPrompt = "";
-    private LinearLayout inlineAcContainer;
-    private TextView inlineAcText;
-    private @Nullable String inlineProposal;
-    private final Runnable acDebounced = () -> {
-        String prompt = extractPromptForCompletion();
-        if (prompt == null || prompt.isEmpty()) { hideInlineSuggestion();; return; }
-        if (prompt.equals(acLastPrompt)) return;
-        acLastPrompt = prompt;
-        fetchLocalSuggestions(prompt); // replace with Gemini call later
-    };
-    private final Map<String, List<Snippet>> snippetsByLang = new HashMap<>();
-    private boolean snippetsLoaded = false;
-    private static final class Snippet {
-        final String trigger;
-        final String insertText;
-        Snippet(String t, String i) { trigger = t; insertText = i; }
-    }
-    private int lastSnippetTriggerLen = 0;
-
 
     // ---- Project / persistence ----
     private Project currentProject;
@@ -130,6 +150,7 @@ public class CodeEditorFragment extends Fragment {
 
         if (currentProject != null) {
             currentProject.setCode(src);
+            currentProject.setFiles(buildProjectFilesFromEditor());
             if (FirebaseAuth.getInstance().getCurrentUser() != null) {
                 ProjectRepository.getInstance().saveProjectToFirestore(
                         currentProject,
@@ -154,6 +175,7 @@ public class CodeEditorFragment extends Fragment {
 
     // AI hints (optional)
     private String aiLang, aiRuntime, aiRunnerHint;
+    private String aiEntrypoint;
 
     // Judge0
     private String judge0BaseUrl = "http://10.0.2.2:2358";
@@ -162,17 +184,21 @@ public class CodeEditorFragment extends Fragment {
 
     // Live runner
     private String liveBaseUrl = "http://10.0.2.2:8080";
-    private OkHttpClient ok;
     private WebSocket liveSocket;
     private String liveSessionId;
     private boolean liveConnecting = false;
+    private OkHttpClient ok;
+    private boolean showDiffs = false;
 
     // Backend selection
-    private enum Backend { AUTO, JUDGE0, LIVE }
-    private Backend currentBackend = Backend.AUTO;
+    private enum Backend { LIVE, HTML }
+    private Backend currentBackend = Backend.LIVE;
 
     // Back-compat
     private String pendingCode;
+
+    // Live manager
+    private LiveRunManager liveRunManager;
 
     // For asking the Activity to switch tabs to Console
     public interface PagerNav { void goToConsoleTab(); }
@@ -185,45 +211,148 @@ public class CodeEditorFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_code_editor, container, false);
 
         codeEditor = v.findViewById(R.id.code_editor);
+        // inside onCreateView, AFTER codeEditor = v.findViewById(...)
+        codeEditor.setOnTouchListener((view, event) -> {
+            // 1) always tell parent (ViewPager2) not to steal this touch
+            ViewParent parent = view.getParent();
+            if (parent != null) {
+                parent.requestDisallowInterceptTouchEvent(true);
+            }
+
+            // 2) handle 2-finger swipe for switching tabs
+            int action = event.getActionMasked();
+
+            switch (action) {
+                case MotionEvent.ACTION_POINTER_DOWN:
+                    if (event.getPointerCount() == 2) {
+                        twoFingerTracking = true;
+                        twoFingerStartX = (event.getX(0) + event.getX(1)) / 2f;
+                    }
+                    break;
+
+                case MotionEvent.ACTION_MOVE:
+                    if (twoFingerTracking && event.getPointerCount() == 2) {
+                        float curX = (event.getX(0) + event.getX(1)) / 2f;
+                        float dx = curX - twoFingerStartX;
+
+                        if (Math.abs(dx) > TWO_FINGER_SWIPE_THRESHOLD) {
+                            if (getActivity() instanceof CodeEditorFragment.PagerNav) {
+                                CodeEditorFragment.PagerNav nav =
+                                        (CodeEditorFragment.PagerNav) getActivity();
+                                if (dx < 0) {
+                                    // 2-finger swipe LEFT → console
+                                    nav.goToConsoleTab();
+                                } else {
+                                    // 2-finger swipe RIGHT → chat (only your activity has this)
+                                    if (getActivity() instanceof ResponseActivity) {
+                                        ((ResponseActivity) getActivity()).goToChatTab();
+                                    }
+                                }
+                            }
+                            twoFingerTracking = false;
+                        }
+                    }
+                    break;
+
+                case MotionEvent.ACTION_POINTER_UP:
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    twoFingerTracking = false;
+                    view.performClick();
+                    break;
+            }
+
+            // return false so the editor still scrolls and you can select text
+            return false;
+        });
+
         btnRun     = v.findViewById(R.id.btn_run);
         progress   = v.findViewById(R.id.progress);
         initTextMateIfNeeded();
         applyTextMateLanguageFromAi();
 
-        toggleAuto   = v.findViewById(R.id.toggle_auto);
-        toggleJudge0 = v.findViewById(R.id.toggle_judge0);
-        toggleLive   = v.findViewById(R.id.toggle_live);
+        tabLayout  = v.findViewById(R.id.tab_layout);
+        filesPanel = v.findViewById(R.id.files_panel);
+        filesListContainer = v.findViewById(R.id.files_list_container);
+
+        btnAddFile = v.findViewById(R.id.btn_add_file);
+        btnToggleFilesPanel = v.findViewById(R.id.btn_toggle_files_panel);
+        btnCloseTab = v.findViewById(R.id.btn_close_tab);
 
         ok = new OkHttpClient();
         consoleVM = new ViewModelProvider(requireActivity()).get(ConsoleViewModel.class);
+
+        if (filesListContainer != null) {
+            renderFilesList(filesListContainer);
+        }
+
+        if (btnToggleFilesPanel != null) {
+            btnToggleFilesPanel.setOnClickListener(view -> {
+                if (filesPanel != null) {
+                    if (filesPanel.getVisibility() == View.VISIBLE) hideFilesPanel();
+                    else showFilesPanel();
+                }
+            });
+        }
+
+        if (btnAddFile != null) {
+            btnAddFile.setOnClickListener(view -> showCreateFileDialog());
+        }
+
+        if (btnCloseTab != null) {
+            btnCloseTab.setOnClickListener(view -> closeCurrentTab());
+        }
+
+        if (tabLayout != null) {
+            tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+                @Override
+                public void onTabSelected(TabLayout.Tab tab) {
+                    if (tab.getTag() instanceof OpenFile) {
+                        OpenFile f = (OpenFile) tab.getTag();
+                        if (codeEditor != null) codeEditor.setText(f.content);
+                    }
+                }
+
+                @Override
+                public void onTabUnselected(TabLayout.Tab tab) {
+                    if (tab.getTag() instanceof OpenFile) {
+                        OpenFile f = (OpenFile) tab.getTag();
+                        f.content = getCode();
+                    }
+                }
+
+                @Override public void onTabReselected(TabLayout.Tab tab) {}
+            });
+        }
 
         // Echo & route console commands
         consoleVM.getCommandOut().observe(getViewLifecycleOwner(), cmd -> {
             if (cmd == null) return;
 
-            if ("/restart".equalsIgnoreCase(cmd.trim())) {
+            String trimmed = cmd.trim();
+
+            if ("/restart".equalsIgnoreCase(trimmed)) {
                 consoleVM.append("(live) restarting…\n");
                 exec.execute(() -> {
                     stopLiveSession("user-restart");
                     startLiveSessionForCurrentCode();
                 });
-                return;
+            } else {
+                if (liveSocket != null) {
+                    sendToLive(cmd + "\n");
+                } else {
+                    consoleVM.append("(live) not connected, starting session…\n");
+                    exec.execute(() -> {
+                        stopLiveSession("console-input");
+                        startLiveSessionForCurrentCode();
+                    });
+                }
             }
 
-            switch (currentBackend) {
-                case LIVE:
-                    sendToLive(cmd + "\n");
-                    break;
-                case JUDGE0:
-                case AUTO:
-                default:
-                    stdinText = (stdinText == null || stdinText.isEmpty()) ? cmd : (stdinText + "\n" + cmd);
-                    printToConsole("(stdin updated; re-running via Judge0)\n");
-                    runViaJudge0(stdinText);
-                    break;
-            }
             FragmentActivity a = requireActivity();
-            if (a instanceof PagerNav) ((PagerNav) a).goToConsoleTab();
+            if (a instanceof PagerNav) {
+                ((PagerNav) a).goToConsoleTab();
+            }
         });
 
         // Observe AI updates from ChatFragment
@@ -243,77 +372,150 @@ public class CodeEditorFragment extends Fragment {
             if (aiRunnerHint != null && !aiRunnerHint.isEmpty()) printToConsole("// Notes: " + aiRunnerHint + "\n");
 
             boolean showDiff = Prefs.showDiffs(requireContext());
-            applyAiCode(update.code, showDiff);   // persists + auto-restarts LIVE if needed
+            applyAiCode(update.code, showDiff);
         });
 
-        // Restore text (order: pendingCode > Project > SharedPreferences)
+        aiBus.getProjectUpdates().observe(getViewLifecycleOwner(), update -> {
+            if (update == null) return;
+            if (update.files == null || update.files.isEmpty()) return;
+
+            List<String> incomingIds = new ArrayList<>();
+
+            for (AiUpdateViewModel.ProjectFile pf : update.files) {
+                String displayName;
+                if (pf.path != null && !pf.path.isEmpty() && !pf.path.equals(".")) {
+                    displayName = pf.path + "/" + pf.filename;
+                } else {
+                    displayName = pf.filename;
+                }
+                incomingIds.add(displayName);
+
+                if (alreadyHasFile(displayName)) {
+                    if (showDiffs) {
+                        String oldContent = getFileContentById(displayName);
+                        String newContent = pf.content != null ? pf.content : "";
+
+                        if (oldContent.equals(newContent)) {
+                            updateOpenFileContent(displayName, newContent);
+                        } else {
+                            List<DiffLine> diff = DiffUtilLite.diffLines(oldContent, newContent);
+                            if (diffDialog != null && diffDialog.isShowing()) {
+                                pendingFileDiffs.add(new PendingFileDiff(displayName, newContent, diff));
+                            } else {
+                                showDiffBottomSheet(displayName, diff,
+                                        () -> updateOpenFileContent(displayName, newContent));
+                            }
+                        }
+                    } else {
+                        updateOpenFileContent(displayName, pf.content);
+                    }
+                } else {
+                    OpenFile of = new OpenFile(displayName, displayName, pf.content);
+                    addAvailableFileFromOutside(of);
+                }
+                aiManagedFiles.put(displayName, Boolean.TRUE);
+            }
+
+            List<OpenFile> toDelete = new ArrayList<>();
+            for (OpenFile existing : new ArrayList<>(availableFiles)) {
+                Boolean aiOwned = aiManagedFiles.get(existing.id);
+                if (aiOwned != null && aiOwned) {
+                    if (!incomingIds.contains(existing.id)) {
+                        toDelete.add(existing);
+                    }
+                }
+            }
+            for (OpenFile dead : toDelete) {
+                if (showDiffs) {
+                    List<DiffLine> delDiff = new ArrayList<>();
+                    delDiff.add(new DiffLine('-', "(file will be deleted)"));
+
+                    if (diffDialog != null && diffDialog.isShowing()) {
+                        pendingFileDiffs.add(new PendingFileDiff(dead.id, null, delDiff));
+                    } else {
+                        showDiffBottomSheet(dead.id, delDiff, () -> {
+                            aiManagedFiles.remove(dead.id);
+                            deleteFileById(dead.id);
+                        });
+                    }
+                } else {
+                    aiManagedFiles.remove(dead.id);
+                    deleteFile(dead);
+                }
+            }
+
+
+
+            if (filesListContainer != null) {
+                renderFilesList(filesListContainer);
+            }
+
+            if (update.entrypoint != null && !update.entrypoint.isEmpty()) {
+                printToConsole("Entrypoint: " + update.entrypoint + "\n");
+                aiEntrypoint = update.entrypoint;
+            }
+
+            this.aiLang = update.language;
+            this.aiRuntime = update.runtime;
+            applyTextMateLanguageFromAi();
+        });
+
         if (pendingCode != null && !pendingCode.isEmpty()) {
             codeEditor.setText(pendingCode);
         } else {
             restoreFromProjectOrCache();
         }
 
-        // Subscribe to Sora editor change events for debounced autosave + AI bus snapshot
+        // after we restored the main code, rebuild file list from the project
+        if (currentProject != null
+                && currentProject.getFiles() != null
+                && !currentProject.getFiles().isEmpty()) {
+
+            availableFiles.clear();
+
+            for (ProjectFile pf : currentProject.getFiles()) {
+                OpenFile of = new OpenFile(pf.path, pf.path, pf.content);
+                availableFiles.add(of);
+            }
+
+            // show in side panel
+            if (filesListContainer != null) {
+                renderFilesList(filesListContainer);
+            }
+
+            // open first file so there's a tab
+            if (!availableFiles.isEmpty()) {
+                openOrSelectFile(availableFiles.get(0));
+            }
+        }
+
+
+        // Subscribe to editor changes
         contentSub = codeEditor.subscribeEvent(
                 ContentChangeEvent.class,
                 (event, publisher) -> {
+                    OpenFile cur = getCurrentOpenFile();
+                    if (cur != null) {
+                        cur.content = getCode();
+                    }
                     saveHandler.removeCallbacks(saveRunnable);
                     saveHandler.postDelayed(saveRunnable, SAVE_DEBOUNCE_MS);
-                    if (aiBus != null) aiBus.publishEditorCode(getCode());
-                    acHandler.removeCallbacks(acDebounced);
-                    acHandler.postDelayed(acDebounced, AC_IDLE_MS);
                 });
 
-        codeEditor.setOnKeyListener((view1, keyCode, e) -> {
-            if (e.getAction() != KeyEvent.ACTION_DOWN) return false;
-
-            boolean isTab   = (keyCode == KeyEvent.KEYCODE_TAB);
-            boolean isEnter = (keyCode == KeyEvent.KEYCODE_ENTER);
-
-            if ((isTab || isEnter)
-                    && inlineAcContainer != null
-                    && inlineAcContainer.getVisibility() == View.VISIBLE
-                    && inlineProposal != null
-                    && !inlineProposal.isEmpty()) {
-
-                int line = codeEditor.getCursor().getLeftLine();
-                int col  = codeEditor.getCursor().getLeftColumn();
-                String proposal = inlineProposal;
-
-                if (lastSnippetTriggerLen > 0) {
-                    int startCol = col - lastSnippetTriggerLen;
-                    if (startCol < 0) startCol = 0;
-                    codeEditor.getText().delete(line, startCol, line, col);
-                    col = startCol;
-                }
-
-                String toInsert = isEnter ? (proposal + "\n") : proposal;
-                codeEditor.getText().insert(line, col, toInsert);
-
-                hideInlineSuggestion();
-                // reset for next time
-                lastSnippetTriggerLen = 0;
-                return true;
-            }
-
-            return false;
-        });
-
-
-
-
-        inlineAcContainer = v.findViewById(R.id.inline_ac_container);
-        inlineAcText      = v.findViewById(R.id.inline_ac_text);
         main.post(() -> { if (aiBus != null) aiBus.publishEditorCode(getCode()); });
-        ensureSnippetsLoaded();
 
+        // args from parent
         Bundle args = getArguments();
         if (args != null) {
             aiLang       = args.getString("ai_language");
             aiRuntime    = args.getString("ai_runtime");
             aiRunnerHint = args.getString("ai_notes");
+            String projectJson = args.getString("ai_project_json");
             String aiCode = args.getString("ai_code");
+
             if (aiCode != null && !aiCode.isEmpty()) setCode(aiCode);
+
+            ingestAiProjectJson(projectJson);
 
             String j0Override = args.getString("judge0_base_url");
             if (j0Override != null && !j0Override.trim().isEmpty()) judge0BaseUrl = j0Override.trim();
@@ -333,38 +535,30 @@ public class CodeEditorFragment extends Fragment {
             printToConsole("// Notes: " + aiRunnerHint + "\n");
         }
 
+        // remember user's diff pref
+        showDiffs = Prefs.showDiffs(requireContext());
+
         // Backend toggles
-        toggleAuto.setOnClickListener(_v -> setBackend(Backend.AUTO));
-        toggleJudge0.setOnClickListener(_v -> setBackend(Backend.JUDGE0));
-        toggleLive.setOnClickListener(_v -> setBackend(Backend.LIVE));
-        setBackend(Backend.AUTO);
+        setBackend(Backend.LIVE);
 
         // Run button
         btnRun.setOnClickListener(_v -> {
-            persistCodeIfPossible(); // ensure latest is saved before run
-            maybePublishHtmlPreview();
+            persistCodeIfPossible();
             FragmentActivity a = requireActivity();
             if (a instanceof PagerNav) ((PagerNav) a).goToConsoleTab();
 
-            switch (currentBackend) {
-                case LIVE:
-                    exec.execute(() -> {
-                        stopLiveSession("manual-run");
-                        startLiveSessionForCurrentCode();
-                    });
-                    break;
-                case JUDGE0:
-                    showStdinDialog();
-                    break;
-                case AUTO:
-                default:
-                    runAuto();
-                    break;
+            String src = getCode();
+            if (looksLikeHtml(src)) {
+                // just publish the preview, don’t start live
+                maybePublishHtmlPreview();
+            } else {
+                // always live runner
+                exec.execute(() -> {
+                    stopLiveSession("manual-run");
+                    startLiveSessionForCurrentCode();
+                });
             }
         });
-
-        // Preload Judge0 languages
-        exec.execute(this::ensureLanguagesLoaded);
 
         return v;
     }
@@ -379,29 +573,154 @@ public class CodeEditorFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         saveHandler.removeCallbacks(saveRunnable);
-        acHandler.removeCallbacks(acDebounced);
-        hideInlineSuggestion();
         if (contentSub != null) {
             try {
                 contentSub.unsubscribe();
-            } catch (Throwable ignored) {
-            }
+            } catch (Throwable ignored) {}
             contentSub = null;
         }
         stopLiveSession("fragment-destroyed");
     }
 
-    // ---------------- Project wiring & persistence ----------------
+    private void ingestAiProjectJson(@Nullable String projectJson) {
+        if (projectJson == null || projectJson.trim().isEmpty()) return;
+        try {
+            org.json.JSONObject root = new org.json.JSONObject(projectJson);
 
-    /** Call this from the host Activity once you have the current Project. */
+            if (root.has("language")) {
+                aiLang = root.optString("language", aiLang);
+            }
+            if (root.has("runtime")) {
+                aiRuntime = root.optString("runtime", aiRuntime);
+            }
+
+            String entrypoint = root.optString("entrypoint", null);
+            aiEntrypoint = entrypoint;
+
+            if (root.has("files")) {
+                org.json.JSONArray arr = root.getJSONArray("files");
+                for (int i = 0; i < arr.length(); i++) {
+                    org.json.JSONObject f = arr.getJSONObject(i);
+                    String path    = f.optString("path", "");
+                    String fname   = f.optString("filename", "");
+                    String content = f.optString("content", "");
+
+                    String id;
+                    if (path != null && !path.isEmpty() && !path.equals(".")) {
+                        id = path + "/" + fname;
+                    } else {
+                        id = fname;
+                    }
+
+                    if (alreadyHasFile(id)) {
+                        updateOpenFileContent(id, content);
+                    } else {
+                        OpenFile of = new OpenFile(id, id, content);
+                        addAvailableFileFromOutside(of);
+                    }
+
+                    aiManagedFiles.put(id, Boolean.TRUE);
+                }
+
+                if (entrypoint != null && !entrypoint.isEmpty()) {
+                    String ep1 = entrypoint;
+                    String ep2 = "./" + entrypoint;
+                    if (alreadyHasFile(ep1)) {
+                        selectTabFor(ep1);
+                    } else if (alreadyHasFile(ep2)) {
+                        selectTabFor(ep2);
+                    }
+                }
+            }
+
+            applyTextMateLanguageFromAi();
+        } catch (Exception e) {
+            printToConsole("Project JSON parse error: " + e.getMessage() + "\n");
+        }
+    }
+
+
+    // ==================== FILE PANEL / TABS ====================
+    private void showFilesPanel() {
+        if (filesPanel != null) filesPanel.setVisibility(View.VISIBLE);
+    }
+
+    private void hideFilesPanel() {
+        if (filesPanel != null) filesPanel.setVisibility(View.GONE);
+    }
+
+    public void addAvailableFileFromOutside(@NonNull OpenFile file) {
+        availableFiles.add(file);
+
+        if (!aiManagedFiles.containsKey(file.id)) {
+            aiManagedFiles.put(file.id, Boolean.TRUE);
+        }
+
+        if (filesListContainer != null) {
+            renderFilesList(filesListContainer);
+        }
+        openOrSelectFile(file);
+    }
+
+
+    private void openOrSelectFile(@NonNull OpenFile file) {
+        if (openTabs.containsKey(file.id)) {
+            selectTabFor(file.id);
+            return;
+        }
+
+        openTabs.put(file.id, file);
+
+        if (tabLayout != null) {
+            TabLayout.Tab tab = tabLayout.newTab();
+            tab.setText(file.name);
+            tab.setTag(file);
+            tabLayout.addTab(tab, true);
+        }
+
+        if (codeEditor != null) {
+            codeEditor.setText(file.content);
+        }
+    }
+
+    private void selectTabFor(@NonNull String fileId) {
+        if (tabLayout == null) return;
+        for (int i = 0; i < tabLayout.getTabCount(); i++) {
+            TabLayout.Tab t = tabLayout.getTabAt(i);
+            if (t == null) continue;
+            Object tag = t.getTag();
+            if (tag instanceof OpenFile) {
+                OpenFile f = (OpenFile) tag;
+                if (fileId.equals(f.id)) {
+                    t.select();
+                    return;
+                }
+            }
+        }
+    }
+
+    // ---------------- Project wiring & persistence ----------------
     public void setProject(@Nullable Project project) {
         this.currentProject = project;
         if (codeEditor != null && project != null) {
+            // old behaviour
             String saved = project.getCode();
             if (saved != null && !saved.isEmpty()) {
                 setCode(saved);
             } else {
                 restoreFromCacheOnly();
+            }
+
+            if (project.getFiles() != null && !project.getFiles().isEmpty()) {
+                availableFiles.clear();
+                for (ProjectFile pf : project.getFiles()) {
+                    OpenFile of = new OpenFile(pf.path, pf.path, pf.content);
+                    availableFiles.add(of);
+                }
+                // open the first file so editor isn't blank
+                if (!availableFiles.isEmpty()) {
+                    openOrSelectFile(availableFiles.get(0));
+                }
             }
         }
     }
@@ -439,7 +758,6 @@ public class CodeEditorFragment extends Fragment {
     }
 
     // ---------- Apply AI code & optionally restart live ----------
-
     public void applyAiCode(@NonNull String newCode, boolean showDiff) {
         String oldCode = getCode();
         if (!showDiff) {
@@ -473,7 +791,8 @@ public class CodeEditorFragment extends Fragment {
         });
     }
 
-    private void showDiffBottomSheet(List<DiffLine> diff, Runnable onAccept) {
+    private void showDiffBottomSheetInternal(@NonNull List<DiffLine> diff,
+                                             @NonNull Runnable onAccept) {
         if (diffDialog == null) {
             View sheet = LayoutInflater.from(requireContext())
                     .inflate(R.layout.sheet_diff_preview, null, false);
@@ -483,26 +802,49 @@ public class CodeEditorFragment extends Fragment {
             diffAdapter = new DiffAdapter(currentDiff);
             rv.setAdapter(diffAdapter);
 
-            TextView summary = sheet.findViewById(R.id.diff_summary);
+            diffHeaderView = sheet.findViewById(R.id.diff_summary);
 
             sheet.findViewById(R.id.btn_cancel).setOnClickListener(v -> {
+                // user rejected this change
                 diffDialog.dismiss();
-                queuedNewCode = null;
-                onAcceptAction = null;
+                showNextPendingDiff();
             });
+
             sheet.findViewById(R.id.btn_apply).setOnClickListener(v -> {
+                // run current action (update file / delete file / apply main code)
                 if (onAcceptAction != null) onAcceptAction.run();
-                diffDialog.dismiss();
+
+                // 1) editor-wide queued change gets priority
                 if (queuedNewCode != null) {
                     String oldCode = getCode();
                     List<DiffLine> next = DiffUtilLite.diffLines(oldCode, queuedNewCode);
                     String applyCode = queuedNewCode;
                     queuedNewCode = null;
-                    showDiffBottomSheet(next, () -> {
+                    currentDiffFileId = "(editor)";
+
+                    currentDiff.clear();
+                    currentDiff.addAll(next);
+                    onAcceptAction = () -> {
                         setCode(applyCode);
                         persistCodeIfPossible();
-                    });
+                    };
+
+                    if (diffAdapter != null) diffAdapter.notifyDataSetChanged();
+                    if (diffHeaderView != null) updateDiffHeader(diffHeaderView);
+                    return; // keep sheet open
                 }
+
+                // 2) if we still have pending file diffs (like your game.py delete) -> load next
+                if (!pendingFileDiffs.isEmpty()) {
+                    PendingFileDiff next = pendingFileDiffs.remove(0);
+                    bindDiffFromPending(next);
+                    return; // keep sheet open
+                }
+
+                // 3) nothing else -> now we can close
+                diffDialog.dismiss();
+                onAcceptAction = null;
+                currentDiffFileId = null;
             });
 
             diffDialog = new BottomSheetDialog(requireContext());
@@ -510,29 +852,120 @@ public class CodeEditorFragment extends Fragment {
             diffDialog.setDismissWithAnimation(true);
             diffDialog.setContentView(sheet);
 
-            diffDialog.setOnShowListener(dlg -> updateDiffHeader(summary));
+            diffDialog.setOnDismissListener(d -> {
+                onAcceptAction = null;
+                currentDiffFileId = null;
+                pendingFileDiffs.clear();
+            });
         }
 
+        // update list + callback
         currentDiff.clear();
         currentDiff.addAll(diff);
         onAcceptAction = onAccept;
+
         if (diffAdapter != null) diffAdapter.notifyDataSetChanged();
 
-        View header = diffDialog.getDelegate().findViewById(R.id.diff_summary);
-        if (header instanceof TextView) updateDiffHeader((TextView) header);
+        // make sure header shows correct file name
+        if (diffHeaderView != null) {
+            updateDiffHeader(diffHeaderView);
+        }
 
-        if (!diffDialog.isShowing()) diffDialog.show();
+        if (!diffDialog.isShowing()) {
+            diffDialog.show();
+        }
+    }
+
+    private void showNextPendingDiff() {
+        if (pendingFileDiffs.isEmpty()) {
+            onAcceptAction = null;
+            currentDiffFileId = null;
+            return;
+        }
+
+        PendingFileDiff next = pendingFileDiffs.remove(0);
+        currentDiffFileId = next.fileId;
+
+        if (next.newContent == null) {
+            showDiffBottomSheetInternal(
+                    next.diff,
+                    () -> {
+                        aiManagedFiles.remove(next.fileId);
+                        deleteFileById(next.fileId);
+                    }
+            );
+        } else {
+            showDiffBottomSheetInternal(
+                    next.diff,
+                    () -> updateOpenFileContent(next.fileId, next.newContent)
+            );
+        }
+    }
+
+    private void deleteFileById(@NonNull String id) {
+        for (OpenFile f : new ArrayList<>(availableFiles)) {
+            if (id.equals(f.id)) {
+                deleteFile(f);
+                break;
+            }
+        }
+    }
+
+    // for file-specific changes (AI updated game/engine.py, etc.)
+    private void showDiffBottomSheet(@NonNull String fileId,
+                                     @NonNull List<DiffLine> diff,
+                                     @NonNull Runnable onAccept) {
+        currentDiffFileId = fileId;
+        showDiffBottomSheetInternal(diff, onAccept);
+    }
+
+    // for “editor/global” changes (applyAiCode on main editor)
+    private void showDiffBottomSheet(@NonNull List<DiffLine> diff,
+                                     @NonNull Runnable onAccept) {
+        currentDiffFileId = "(editor)";
+        showDiffBottomSheetInternal(diff, onAccept);
     }
 
     private void updateDiffHeader(TextView summary) {
         int adds = 0, dels = 0;
-        for (DiffLine d : currentDiff) { if (d.type == '+') adds++; else if (d.type == '-') dels++; }
-        summary.setText("+" + adds + " · −" + dels);
+        for (DiffLine d : currentDiff) {
+            if (d.type == '+') adds++;
+            else if (d.type == '-') dels++;
+        }
+
+        String filePart = (currentDiffFileId != null && !currentDiffFileId.isEmpty())
+                ? currentDiffFileId
+                : "Changes";
+
+        summary.setText(filePart + "  ·  +" + adds + "  ·  −" + dels);
     }
+
+    private void bindDiffFromPending(@NonNull PendingFileDiff next) {
+        currentDiffFileId = next.fileId;
+
+        // replace list
+        currentDiff.clear();
+        currentDiff.addAll(next.diff);
+
+        // set what should happen when user presses Apply on THIS one
+        if (next.newContent == null) {
+            // it's a delete
+            onAcceptAction = () -> {
+                aiManagedFiles.remove(next.fileId);
+                deleteFileById(next.fileId);
+            };
+        } else {
+            onAcceptAction = () -> updateOpenFileContent(next.fileId, next.newContent);
+        }
+
+        if (diffAdapter != null) diffAdapter.notifyDataSetChanged();
+        if (diffHeaderView != null) updateDiffHeader(diffHeaderView);
+    }
+
 
     // -------- tiny diff + adapter --------
     static final class DiffLine {
-        final char type; // ' ' unchanged, '+' add, '-' del
+        final char type;
         final String text;
         DiffLine(char t, String s){ type=t; text=s; }
     }
@@ -585,13 +1018,12 @@ public class CodeEditorFragment extends Fragment {
         }
     }
 
-    // ---------- Back-compat helpers ----------
+    // ---------- basic editor helpers ----------
     public void setCode(@Nullable String code) {
         pendingCode = code;
         if (codeEditor != null && code != null) {
             codeEditor.setText(looksLikeHtmlDoc(code) ? beautifyHtml(code) : code);
         }
-        // keep Project + cache in sync (debounced)
         saveHandler.removeCallbacks(saveRunnable);
         saveHandler.postDelayed(saveRunnable, SAVE_DEBOUNCE_MS);
     }
@@ -609,39 +1041,6 @@ public class CodeEditorFragment extends Fragment {
     // ---------- Backend selection ----------
     private void setBackend(Backend b) {
         currentBackend = b;
-        toggleAuto.setChecked(b == Backend.AUTO);
-        toggleJudge0.setChecked(b == Backend.JUDGE0);
-        toggleLive.setChecked(b == Backend.LIVE);
-    }
-
-    private Backend autoChooseBackend() {
-        String src = getCode();
-        String l   = (aiLang == null ? "" : aiLang.toLowerCase());
-        boolean looksInteractive =
-                src.matches("(?s).*\\binput\\s*\\(.*")
-                        || src.matches("(?s).*\\bscanf\\s*\\(.*")
-                        || src.contains("process.stdin")
-                        || src.contains("readline.createInterface")
-                        || src.contains("Scanner(System.in)")
-                        || src.toLowerCase().contains("enter your choice")
-                        || src.matches("(?s).*(while\\s*\\(true\\)|for\\s*\\(;;\\)).*(input|stdin|scanf|readline|Scanner).*");
-        if (looksInteractive) return Backend.LIVE;
-        if (l.contains("typescript") || l.contains("dart") || l.contains("kotlin")) return Backend.LIVE;
-        return Backend.JUDGE0;
-    }
-
-    private void runAuto() {
-        Backend chosen = autoChooseBackend();
-        if (chosen == Backend.LIVE) {
-            setBackend(Backend.LIVE);
-            exec.execute(() -> {
-                stopLiveSession("auto-live");
-                startLiveSessionForCurrentCode();
-            });
-            return;
-        }
-        setBackend(Backend.JUDGE0);
-        runViaJudge0WithFallback();
     }
 
     // ---------- HTML preview ----------
@@ -674,151 +1073,85 @@ public class CodeEditorFragment extends Fragment {
         });
     }
 
-    // ---------- Judge0 ----------
-    private void showStdinDialog() {
-        if (getContext() == null) { runViaJudge0(""); return; }
-
-        final EditText input = new EditText(getContext());
-        input.setText(stdinText);
-        input.setMinLines(3);
-        input.setMaxLines(10);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        input.setPadding(pad, pad, pad, pad);
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Program Input (stdin)")
-                .setMessage("Enter the input your program should read (sent as-is).")
-                .setView(input)
-                .setPositiveButton("Run", (d, which) -> {
-                    stdinText = input.getText().toString();
-                    runViaJudge0(stdinText);
-                })
-                .setNeutralButton("Run without input", (d, which) -> runViaJudge0(""))
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void runViaJudge0WithFallback() {
-        setRunning(true);
-        printToConsole("⏵ Submitting to Judge0 (auto)…\n");
-        exec.execute(() -> {
-            try {
-                ensureLanguagesLoaded();
-                final String code = getCode();
-                final String langHint = aiLang == null ? "" : aiLang.toLowerCase();
-
-                int languageId = pickLanguageId(langHint);
-
-                JSONObject payload = new JSONObject();
-                payload.put("language_id", languageId);
-                payload.put("source_code", b64(code));
-                if (stdinText != null && !stdinText.isEmpty()) payload.put("stdin", b64(stdinText));
-
-                String endpoint = judge0BaseUrl + "/submissions?base64_encoded=true&wait=true";
-                JSONObject res = httpPostJson(endpoint, payload);
-
-                emitJudge0Result(res);
-            } catch (Exception e) {
-                final String msg = e.getMessage();
-                main.post(() -> {
-                    printToConsole("\n⚠ Judge0 failed (auto): " + msg + "\n→ Switching to Live…\n");
-                    setBackend(Backend.LIVE);
-                    stopLiveSession("j0-fallback");
-                    startLiveSessionForCurrentCode();
-                });
-            } finally {
-                main.post(() -> setRunning(false));
-            }
-        });
-    }
-
-    private void runViaJudge0(String stdin) {
-        final String code = getCode();
-        final String langHint = aiLang == null ? "" : aiLang.toLowerCase();
-
-        setRunning(true);
-        printToConsole("⏵ Submitting to Judge0…\n");
-
-        exec.execute(() -> {
-            try {
-                ensureLanguagesLoaded();
-                int languageId = pickLanguageId(langHint);
-
-                JSONObject payload = new JSONObject();
-                payload.put("language_id", languageId);
-                payload.put("source_code", b64(code));
-                if (stdin != null && !stdin.isEmpty()) payload.put("stdin", b64(stdin));
-
-                String endpoint = judge0BaseUrl + "/submissions?base64_encoded=true&wait=true";
-                JSONObject res = httpPostJson(endpoint, payload);
-
-                emitJudge0Result(res);
-            } catch (Exception e) {
-                printToConsole("\nError: " + e.getMessage() + "\n");
-            } finally {
-                setRunning(false);
-            }
-        });
-    }
-
-    private void emitJudge0Result(JSONObject res) throws Exception {
-        String statusDesc = optStatusDesc(res);
-        String stdout  = b64DecodeOrEmpty(res.optString("stdout", null));
-        String stderr  = b64DecodeOrEmpty(res.optString("stderr", null));
-        String compile = b64DecodeOrEmpty(res.optString("compile_output", null));
-        String message = b64DecodeOrEmpty(res.optString("message", null));
-        String time    = res.optString("time", null);
-        int memory     = res.optInt("memory", -1);
-
-        StringBuilder out = new StringBuilder();
-        out.append("\nStatus: ").append(statusDesc).append("\n");
-        if (!compile.isEmpty()) out.append("\n[compile]\n").append(compile).append("\n");
-        if (!stdout.isEmpty())  out.append("\n[stdout]\n").append(stdout).append("\n");
-        if (!stderr.isEmpty())  out.append("\n[stderr]\n").append(stderr).append("\n");
-        if (!message.isEmpty()) out.append("\n[message]\n").append(message).append("\n");
-        if (time != null || memory >= 0) {
-            out.append("\n[metrics]\n");
-            if (time != null) out.append("time: ").append(time).append("s\n");
-            if (memory >= 0)  out.append("memory: ").append(memory).append(" KB\n");
-        }
-        printToConsole(out.toString());
-
-        FragmentActivity a = requireActivity();
-        if (a instanceof PagerNav) ((PagerNav) a).goToConsoleTab();
-    }
-
-    private void ensureLanguagesLoaded() {
-        if (!languageMap.isEmpty()) return;
-        try {
-            JSONArray arr = httpGetJsonArray(judge0BaseUrl + "/languages");
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                int id = o.optInt("id", -1);
-                String name = o.optString("name", "");
-                if (id >= 0 && !name.isEmpty()) languageMap.put(name.toLowerCase(), id);
-            }
-            printToConsole("Loaded " + languageMap.size() + " languages.\n");
-        } catch (Exception e) {
-            printToConsole("Could not load /languages: " + e.getMessage() + "\n");
-        }
-    }
-
-    private int pickLanguageId(String hint) {
-        if (!languageMap.isEmpty() && hint != null && !hint.isEmpty()) {
-            Integer exact = languageMap.get(hint);
-            if (exact != null) return exact;
-            for (Map.Entry<String, Integer> e : languageMap.entrySet()) {
-                if (e.getKey().contains(hint)) return e.getValue();
-            }
-        }
-        if (hint.contains("javascript") || hint.contains("node") || hint.contains("js")) return 63;
-        if (hint.contains("python")) return 71;
-        return 71;
-    }
-
     // ---------- Live session helpers ----------
+    private void connectLiveWebSocket(String wsUrl) {
+        Request req = new Request.Builder().url(wsUrl).build();
+        liveSocket = ok.newWebSocket(req, new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, Response response) {
+                printToConsole("Live connected.\n");
+                liveConnecting = false;
+                setRunning(false);
+                FragmentActivity a = requireActivity();
+                if (a instanceof PagerNav) ((PagerNav) a).goToConsoleTab();
+            }
+
+            @Override
+            public void onMessage(WebSocket webSocket, String text) {
+                printToConsole(text);
+            }
+
+            @Override
+            public void onMessage(WebSocket webSocket, ByteString bytes) {
+                printToConsole(bytes.utf8());
+            }
+
+            @Override
+            public void onClosing(WebSocket webSocket, int code, String reason) {
+                printToConsole("\n⏹ Live closing (" + code + "): " + reason + "\n");
+                webSocket.close(1000, null);
+                liveSocket = null;
+            }
+
+            @Override
+            public void onFailure(WebSocket webSocket, Throwable t, @Nullable Response r) {
+                printToConsole("\n✖ Live socket error: " + t.getMessage() + "\n");
+                liveSocket = null;
+            }
+        });
+    }
+
+    private void initLiveManagerIfNeeded() {
+        if (liveRunManager != null) return;
+        liveRunManager = new LiveRunManager(
+                liveBaseUrl,
+                exec,
+                new LiveRunManager.Listener() {
+                    @Override
+                    public void log(String msg) {
+                        main.post(() -> printToConsole(msg));
+                    }
+
+                    @Override
+                    public void onSessionReady(String wsUrl, String sessionId) {
+                        liveSessionId = sessionId;
+                        main.post(() -> {
+                            connectLiveWebSocket(wsUrl);
+                            liveConnecting = false;
+                            setRunning(false);
+                        });
+                    }
+
+                    @Override
+                    public void onStopped() {
+                        // optional
+                    }
+
+                    @Override
+                    public void onError(String msg) {
+                        main.post(() -> {
+                            printToConsole(msg + "\n");
+                            liveConnecting = false;
+                            setRunning(false);
+                        });
+                    }
+                }
+        );
+    }
+
     private void startLiveSessionForCurrentCode() {
+        setBackend(Backend.LIVE);
+
         if (liveConnecting) {
             printToConsole("Live is already connecting…\n");
             return;
@@ -830,236 +1163,273 @@ public class CodeEditorFragment extends Fragment {
 
         setRunning(true);
         liveConnecting = true;
-        printToConsole("⏵ Starting live session (python main.py)…\n");
+        printToConsole("⏵ Starting live session…\n");
 
-        exec.execute(() -> {
-            try {
-                String projectId = createProject();
-                String code = getCode();
-                uploadFile(projectId, "main.py", code);
+        initLiveManagerIfNeeded();
 
-                if (!verifyFileExists(projectId, "main.py")) {
-                    printToConsole("(upload verify failed; retrying once)\n");
-                    uploadFile(projectId, "main.py", code);
-                    if (!verifyFileExists(projectId, "main.py")) {
-                        throw new RuntimeException("main.py did not appear in project after upload");
-                    }
-                }
+        // 1) collect all editor files
+        JSONArray filesJson = buildEditorFilesJson();
 
-                JSONObject payload = new JSONObject();
-                payload.put("language", "python");
-                payload.put("cmd", new JSONArray().put("python").put("main.py"));
-                payload.put("projectId", projectId);
-                payload.put("readOnlyFs", true);
+        // 2) pick language
+        String language = (aiLang != null && !aiLang.isEmpty()) ? aiLang : "python";
 
-                JSONObject res = httpPostJson(liveBaseUrl + "/session", payload);
-                liveSessionId = res.optString("id", null);
-                String wsPath = res.optString("ws", null);
-                if (liveSessionId == null || wsPath == null)
-                    throw new RuntimeException("Bad /session response");
+        // 3) pick entrypoint
+        String entry = aiEntrypoint;
+        if (entry == null || entry.trim().isEmpty()) {
+            entry = guessEntrypointFromEditorFiles(filesJson);
+        }
 
-                String wsUrl = (liveBaseUrl.startsWith("https://")
-                        ? liveBaseUrl.replaceFirst("^https://", "wss://")
-                        : liveBaseUrl.replaceFirst("^http://", "ws://")) + wsPath;
+        // If AI said a file that doesn't exist anymore, ask user
+        if (entry != null && !editorHasPath(filesJson, entry)) {
+            liveConnecting = false;
+            setRunning(false);
+            main.post(() -> showEntrypointPicker(filesJson, language));
+            return;
+        }
 
-                main.post(() -> connectLiveWebSocket(wsUrl));
-            } catch (Exception e) {
-                final String msg = e.getMessage();
-                main.post(() -> {
-                    printToConsole("Live session error: " + msg + "\n");
-                    liveConnecting = false;
-                    setRunning(false);
-                });
-            }
-        });
+        // 4) start live run with all files
+        liveRunManager.startLiveBulk(
+                filesJson,
+                language,
+                entry != null ? entry : "main.py",
+                true,
+                true
+        );
     }
 
-    private void connectLiveWebSocket(String wsUrl) {
-        Request req = new Request.Builder().url(wsUrl).build();
-        liveSocket = ok.newWebSocket(req, new WebSocketListener() {
-            @Override public void onOpen(WebSocket webSocket, Response response) {
-                printToConsole("Live connected.\n");
-                liveConnecting = false;
-                setRunning(false);
-                FragmentActivity a = requireActivity();
-                if (a instanceof PagerNav) ((PagerNav) a).goToConsoleTab();
-            }
-            @Override public void onMessage(WebSocket webSocket, String text) { printToConsole(text); }
-            @Override public void onMessage(WebSocket webSocket, ByteString bytes) { printToConsole(bytes.utf8()); }
-            @Override public void onClosing(WebSocket webSocket, int code, String reason) {
-                printToConsole("\n⏹ Live closing (" + code + "): " + reason + "\n");
-                webSocket.close(1000, null);
-                liveSocket = null;
-            }
-            @Override public void onFailure(WebSocket webSocket, Throwable t, @Nullable Response r) {
-                printToConsole("\n✖ Live socket error: " + t.getMessage() + "\n");
-                liveSocket = null;
-            }
-        });
-    }
-
-    /** Gracefully stop/cleanup the live session (socket + server). */
     private void stopLiveSession(@Nullable String reason) {
         try {
             if (liveSocket != null) {
-                try { liveSocket.close(1000, reason == null ? "closed" : reason); } catch (Throwable ignore) {}
+                liveSocket.close(1000, reason == null ? "closed" : reason);
             }
-            liveSocket = null;
-            if (liveSessionId != null) {
-                try { httpDelete(liveBaseUrl + "/session/" + liveSessionId); } catch (Exception ignore) {}
+        } catch (Throwable ignore) {}
+        liveSocket = null;
+
+        initLiveManagerIfNeeded();
+        liveRunManager.stopSession(liveSessionId);
+        liveSessionId = null;
+        liveConnecting = false;
+    }
+
+    private JSONArray buildEditorFilesJson() {
+        JSONArray arr = new JSONArray();
+        for (OpenFile f : availableFiles) {
+            try {
+                JSONObject o = new JSONObject();
+                o.put("path", f.id != null ? f.id : f.name);
+                o.put("content", f.content != null ? f.content : "");
+                arr.put(o);
+            } catch (Exception ignored) {}
+        }
+        return arr;
+    }
+
+    private boolean editorHasPath(JSONArray files, String path) {
+        if (path == null) return false;
+        for (int i = 0; i < files.length(); i++) {
+            JSONObject f = files.optJSONObject(i);
+            if (f == null) continue;
+            String p = f.optString("path", "");
+            if (p.equals(path) || p.equals("./" + path) || ("./" + p).equals(path)) {
+                return true;
             }
-        } finally {
-            liveSessionId = null;
-            liveConnecting = false;
+        }
+        return false;
+    }
+
+    private String guessEntrypointFromEditorFiles(JSONArray files) {
+        String first = null;
+        for (int i = 0; i < files.length(); i++) {
+            JSONObject f = files.optJSONObject(i);
+            if (f == null) continue;
+            String p = f.optString("path", "");
+            if (first == null) first = p;
+            if ("main.py".equals(p) || "./main.py".equals(p)) {
+                return p.replace("./", "");
+            }
+        }
+        return first;
+    }
+
+    private void showEntrypointPicker(JSONArray files, String language) {
+        if (getContext() == null) return;
+
+        List<String> names = new ArrayList<>();
+        for (int i = 0; i < files.length(); i++) {
+            JSONObject f = files.optJSONObject(i);
+            if (f == null) continue;
+            names.add(f.optString("path", "file" + i));
+        }
+
+        CharSequence[] items = names.toArray(new CharSequence[0]);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Select file to run")
+                .setItems(items, (d, which) -> {
+                    String chosen = names.get(which);
+                    initLiveManagerIfNeeded();
+                    liveRunManager.startLiveBulk(
+                            buildEditorFilesJson(),
+                            language,
+                            chosen,
+                            true,
+                            true
+                    );
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void printToConsole(@NonNull String msg) {
+        if (consoleVM != null) {
+            consoleVM.append(msg);
         }
     }
 
-    private void sendToLive(String data) {
-        if (liveSocket != null) {
-            liveSocket.send(data);
-        } else {
-            printToConsole("No live session. Starting one…\n");
-            setBackend(Backend.LIVE);
-            startLiveSessionForCurrentCode();
-            main.postDelayed(() -> {
-                if (liveSocket != null) liveSocket.send(data);
-            }, 600);
-        }
-    }
-
-    // Project/file helpers for live
-    private String createProject() throws Exception {
-        JSONObject res = httpPostJson(liveBaseUrl + "/projects", new JSONObject());
-        String id = res.optString("projectId", null);
-        if (id == null) throw new RuntimeException("No projectId");
-        return id;
-    }
-    private void uploadFile(@NonNull String projectId, @NonNull String relPath, @NonNull String content) throws Exception {
-        JSONObject body = new JSONObject();
-        body.put("path", relPath);
-        body.put("content", content);
-        httpPutJson(liveBaseUrl + "/projects/" + projectId + "/files", body);
-    }
-    private boolean verifyFileExists(@NonNull String projectId, @NonNull String relPath) {
-        try {
-            JSONObject obj = httpGetJsonObject(liveBaseUrl + "/projects/" + projectId + "/files?path=" + java.net.URLEncoder.encode(relPath, "UTF-8"));
-            String c = obj.optString("content", null);
-            if (c == null) return false;
-            printToConsole("Uploaded " + relPath + " (" + c.length() + " bytes)\n");
-            return true;
-        } catch (Exception e) {
-            printToConsole("verifyFileExists: " + e.getMessage() + "\n");
-            return false;
-        }
-    }
-
-    // ---------- HTTP utils ----------
-    private JSONObject httpGetJsonObject(String urlStr) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(30000);
-        conn.connect();
-        int code = conn.getResponseCode();
-        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
-        String body = readAll(is);
-        conn.disconnect();
-        if (code < 200 || code >= 300) throw new RuntimeException("GET " + urlStr + " -> " + code + ": " + body);
-        return new JSONObject(body);
-    }
-    private JSONArray httpGetJsonArray(String urlStr) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(30000);
-        conn.connect();
-        int code = conn.getResponseCode();
-        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
-        String body = readAll(is);
-        conn.disconnect();
-        if (code < 200 || code >= 300) throw new RuntimeException("GET " + urlStr + " -> " + code + ": " + body);
-        return new JSONArray(body);
-    }
-    private JSONObject httpPostJson(String urlStr, JSONObject json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(60000);
-        conn.setDoOutput(true);
-
-        OutputStream os = conn.getOutputStream();
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
-        writer.write(json.toString());
-        writer.flush();
-        writer.close();
-        os.close();
-
-        int code = conn.getResponseCode();
-        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
-        String body = readAll(is);
-        conn.disconnect();
-        if (code < 200 || code >= 300) throw new RuntimeException("POST " + urlStr + " -> " + code + ": " + body);
-        return new JSONObject(body);
-    }
-    private JSONObject httpPutJson(String urlStr, JSONObject json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("PUT");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(60000);
-        conn.setDoOutput(true);
-
-        OutputStream os = conn.getOutputStream();
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
-        writer.write(json.toString());
-        writer.flush();
-        writer.close();
-        os.close();
-
-        int code = conn.getResponseCode();
-        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
-        String body = readAll(is);
-        conn.disconnect();
-        if (code < 200 || code >= 300) throw new RuntimeException("PUT " + urlStr + " -> " + code + ": " + body);
-        return new JSONObject(body);
-    }
-    private void httpDelete(String urlStr) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("DELETE");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(30000);
-        conn.connect();
-        int code = conn.getResponseCode();
-        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
-        if (is != null) { try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-            while (br.readLine() != null) { /* drain */ }
-        }}
-        conn.disconnect();
-        // non-2xx is not fatal for stop; backend may not support DELETE
-    }
-    private String readAll(InputStream is) throws Exception {
-        if (is == null) return "";
-        BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = br.readLine()) != null) sb.append(line).append('\n');
-        br.close();
-        return sb.toString();
-    }
-
-    // ---------- UI helpers ----------
     private void setRunning(boolean running) {
-        main.post(() -> {
+        if (progress == null) return;
+        if (Looper.myLooper() == Looper.getMainLooper()) {
             progress.setVisibility(running ? View.VISIBLE : View.GONE);
-            btnRun.setEnabled(!running);
-            toggleAuto.setEnabled(!running);
-            toggleJudge0.setEnabled(!running);
-            toggleLive.setEnabled(!running);
-        });
+        } else {
+            main.post(() -> {
+                if (progress != null) {
+                    progress.setVisibility(running ? View.VISIBLE : View.GONE);
+                }
+            });
+        }
     }
-    private void printToConsole(String text) {
-        if (consoleVM != null) consoleVM.append(text == null ? "" : text);
+
+
+    private void closeCurrentTab() {
+        if (tabLayout == null) return;
+        int idx = tabLayout.getSelectedTabPosition();
+        if (idx == -1) return;
+
+        TabLayout.Tab tab = tabLayout.getTabAt(idx);
+        if (tab == null) return;
+
+        Object tag = tab.getTag();
+        if (tag instanceof OpenFile) {
+            OpenFile f = (OpenFile) tag;
+            openTabs.remove(f.id);
+        }
+
+        tabLayout.removeTabAt(idx);
+
+        if (tabLayout.getTabCount() > 0) {
+            int newIndex = Math.max(0, idx - 1);
+            TabLayout.Tab newTab = tabLayout.getTabAt(newIndex);
+            if (newTab != null) {
+                newTab.select();
+                Object t = newTab.getTag();
+                if (t instanceof OpenFile && codeEditor != null) {
+                    codeEditor.setText(((OpenFile) t).content);
+                }
+            }
+        } else {
+            if (codeEditor != null) codeEditor.setText("");
+        }
+    }
+
+    private void renderFilesList(@NonNull LinearLayout container) {
+        container.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(container.getContext());
+
+        for (OpenFile file : availableFiles) {
+            LinearLayout row = new LinearLayout(container.getContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(24, 16, 16, 16);
+            row.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+
+            TextView name = new TextView(container.getContext());
+            name.setText(file.name);
+            name.setTextColor(0xFFFFFFFF);
+            name.setLayoutParams(new LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+            ));
+
+            ImageButton trash = new ImageButton(container.getContext());
+            trash.setImageResource(android.R.drawable.ic_menu_delete);
+            trash.setBackgroundColor(0x00000000);
+            trash.setColorFilter(0xFFFFFFFF);
+            int p = (int) (8 * getResources().getDisplayMetrics().density);
+            trash.setPadding(p, p, p, p);
+
+            row.setOnClickListener(v -> {
+                openOrSelectFile(file);
+                hideFilesPanel();
+            });
+
+            trash.setOnClickListener(v -> {
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Delete file?")
+                        .setMessage("Delete " + file.name + "?")
+                        .setPositiveButton("Delete", (d, w) -> {
+                            deleteFile(file);
+                            renderFilesList(container);
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+
+            row.addView(name);
+            row.addView(trash);
+            container.addView(row);
+        }
+    }
+
+    private void deleteFile(@NonNull OpenFile file) {
+        int idx = availableFiles.indexOf(file);
+        if (idx >= 0) availableFiles.remove(idx);
+
+        boolean wasCurrent = false;
+        if (tabLayout != null) {
+            int selected = tabLayout.getSelectedTabPosition();
+            if (selected >= 0) {
+                TabLayout.Tab sel = tabLayout.getTabAt(selected);
+                if (sel != null && sel.getTag() instanceof OpenFile) {
+                    OpenFile selFile = (OpenFile) sel.getTag();
+                    wasCurrent = file.id.equals(selFile.id);
+                }
+            }
+
+            for (int i = 0; i < tabLayout.getTabCount(); i++) {
+                TabLayout.Tab t = tabLayout.getTabAt(i);
+                if (t != null && t.getTag() instanceof OpenFile) {
+                    OpenFile of = (OpenFile) t.getTag();
+                    if (file.id.equals(of.id)) {
+                        tabLayout.removeTabAt(i);
+                        break;
+                    }
+                }
+            }
+        }
+
+        openTabs.remove(file.id);
+
+        if (wasCurrent) {
+            if (tabLayout != null && tabLayout.getTabCount() > 0) {
+                TabLayout.Tab newTab = tabLayout.getTabAt(0);
+                if (newTab != null) {
+                    newTab.select();
+                    Object tag = newTab.getTag();
+                    if (tag instanceof OpenFile && codeEditor != null) {
+                        codeEditor.setText(((OpenFile) tag).content);
+                    }
+                }
+            } else {
+                if (codeEditor != null) codeEditor.setText("");
+            }
+        }
+
+        if (filesListContainer != null) {
+            renderFilesList(filesListContainer);
+        }
     }
 
     // ---------- small utils ----------
@@ -1069,6 +1439,7 @@ public class CodeEditorFragment extends Fragment {
                 android.util.Base64.NO_WRAP
         );
     }
+
     private String b64DecodeOrEmpty(String s) {
         if (s == null || s.isEmpty() || "null".equalsIgnoreCase(s)) return "";
         try {
@@ -1089,7 +1460,7 @@ public class CodeEditorFragment extends Fragment {
             GrammarRegistry.getInstance().loadGrammars("tm/languages.json");
 
             ThemeRegistry themeRegistry = ThemeRegistry.getInstance();
-            String themeName = "dark"; // Need Settings For This
+            String themeName = "dark";
             String themePath = "themes/" + themeName + ".json";
 
             ThemeModel model = new ThemeModel(
@@ -1103,10 +1474,7 @@ public class CodeEditorFragment extends Fragment {
             themeRegistry.loadTheme(model);
             themeRegistry.setTheme(themeName);
 
-            // 4) tell the editor to use the TextMate color scheme from that theme
             codeEditor.setColorScheme(TextMateColorScheme.create(themeRegistry));
-
-            // 6) pick some language so it highlights
             codeEditor.setEditorLanguage(TextMateLanguage.create("source.python", true));
 
         } catch (Throwable t) {
@@ -1114,10 +1482,6 @@ public class CodeEditorFragment extends Fragment {
             printToConsole("TextMate init failed: " + t.getMessage() + "\n");
         }
     }
-
-
-
-
 
     private void applyTextMateLanguageFromAi() {
         if (codeEditor == null) return;
@@ -1173,31 +1537,6 @@ public class CodeEditorFragment extends Fragment {
         return res.optString("status", "?");
     }
 
-    // ---------- AUTOCOMPLETE helpers (popup + local suggestions) ----------
-    private int dp(int value) {
-        float density = getResources().getDisplayMetrics().density;
-        return (int) (value * density);
-    }
-
-    private void showInlineSuggestion(@NonNull String suggestion) {
-        inlineProposal = suggestion;
-        if (inlineAcText != null) inlineAcText.setText(suggestion);
-        if (inlineAcContainer != null && inlineAcContainer.getVisibility() != View.VISIBLE) {
-            inlineAcContainer.setVisibility(View.VISIBLE);
-        }
-
-        if (inlineAcContainer != null) {
-            inlineAcContainer.setTranslationX(dp(8));
-            inlineAcContainer.setTranslationY(dp(8));
-        }
-    }
-
-    private void hideInlineSuggestion() {
-        inlineProposal = null;
-        if (inlineAcContainer != null) inlineAcContainer.setVisibility(View.GONE);
-    }
-
-    /** Safely extract ~last 20 lines before caret for AI prompt. */
     private String extractPromptForCompletion() {
         if (codeEditor == null || codeEditor.getText() == null) return "";
         final String all = codeEditor.getText().toString();
@@ -1213,87 +1552,62 @@ public class CodeEditorFragment extends Fragment {
         }
         int from = (idx <= 0) ? 0 : (idx + 1);
         if (from > caret) from = caret;
-        // Guard against StringIndexOutOfBounds (begin <= end)
         if (from < 0) from = 0;
         return all.substring(from, caret);
     }
 
-    /** JSON-driven autocomplete from assets/snippets.json */
-    private void fetchLocalSuggestions(String prompt) {
-        ensureSnippetsLoaded();
-        if (prompt == null) {
-            hideInlineSuggestion();
-            lastSnippetTriggerLen = 0;
-            return;
+    private boolean alreadyHasFile(@NonNull String id) {
+        for (OpenFile f : availableFiles) {
+            if (id.equals(f.id)) return true;
         }
-        String lang = currentLanguageKey();
-        List<Snippet> list = snippetsByLang.get(lang);
-        if (list == null || list.isEmpty()) {
-            hideInlineSuggestion();
-            lastSnippetTriggerLen = 0;
-            return;
-        }
-
-        String bestInsert = null;
-        int bestLen = -1;
-
-        for (Snippet sn : list) {
-            String trig = sn.trigger;
-            if (prompt.endsWith(trig) && trig.length() > bestLen) {
-                bestInsert = renderSnippet(sn.insertText);
-                bestLen = trig.length();
-            }
-        }
-
-        if (bestInsert != null && !bestInsert.isEmpty()) {
-            showInlineSuggestion(bestInsert);
-            lastSnippetTriggerLen = bestLen;
-        } else {
-            hideInlineSuggestion();
-            lastSnippetTriggerLen = 0;
-        }
+        return false;
     }
 
-
-    private void ensureSnippetsLoaded() {
-        if (snippetsLoaded || getContext() == null) return;
-        try (InputStream is = requireContext().getAssets().open("snippets.json");
-             BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                sb.append(line);
+    private void updateOpenFileContent(@NonNull String id, @NonNull String newContent) {
+        for (OpenFile f : availableFiles) {
+            if (id.equals(f.id)) {
+                f.content = newContent;
+                break;
             }
-
-            JSONObject root = new JSONObject(sb.toString());
-            // Android-friendly iteration
-            for (java.util.Iterator<String> it = root.keys(); it.hasNext(); ) {
-                String key = it.next();
-                JSONArray arr = root.optJSONArray(key);
-                if (arr == null) continue;
-
-                ArrayList<Snippet> list = new ArrayList<>();
-                for (int i = 0; i < arr.length(); i++) {
-                    JSONObject o = arr.getJSONObject(i);
-                    String trig = o.optString("trigger", "");
-                    String text = o.optString("insertText", "");
-                    if (!trig.isEmpty() && !text.isEmpty()) {
-                        list.add(new Snippet(trig, text));
+        }
+        if (openTabs.containsKey(id)) {
+            OpenFile f = openTabs.get(id);
+            if (f != null) {
+                f.content = newContent;
+                if (tabLayout != null) {
+                    TabLayout.Tab tab = tabLayout.getTabAt(tabLayout.getSelectedTabPosition());
+                    if (tab != null && tab.getTag() instanceof OpenFile) {
+                        OpenFile cur = (OpenFile) tab.getTag();
+                        if (id.equals(cur.id) && codeEditor != null) {
+                            codeEditor.setText(newContent);
+                        }
                     }
                 }
-                if (!list.isEmpty()) {
-                    snippetsByLang.put(key.toLowerCase(), list);
-                }
             }
-
-            snippetsLoaded = true;
-            printToConsole("Snippets loaded (" + snippetsByLang.size() + " langs).\n");
-        } catch (Exception e) {
-            printToConsole("Snippet load error: " + e.getMessage() + "\n");
         }
     }
 
+    private void showCreateFileDialog() {
+        if (getContext() == null) return;
+
+        final EditText input = new EditText(getContext());
+        input.setHint("e.g. main.py or lib/utils.py");
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("New file")
+                .setView(input)
+                .setPositiveButton("Create", (d, w) -> {
+                    String name = input.getText().toString().trim();
+                    if (name.isEmpty()) return;
+                    OpenFile of = new OpenFile(name, name, "");
+                    aiManagedFiles.put(name, Boolean.FALSE);
+                    addAvailableFileFromOutside(of);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
 
     private String currentLanguageKey() {
         String l = (aiLang == null ? "" : aiLang.trim().toLowerCase());
@@ -1306,7 +1620,6 @@ public class CodeEditorFragment extends Fragment {
         if (l.contains("html")) return "html";
         if (l.contains("css")) return "css";
         if (l.contains("php")) return "php";
-        // fallback by content
         String src = getCode().trim().toLowerCase();
         if (src.startsWith("<!doctype") || src.contains("<html")) return "html";
         return "javascript";
@@ -1314,19 +1627,18 @@ public class CodeEditorFragment extends Fragment {
 
     private String renderSnippet(String insertText) {
         String s = insertText;
-        s = s.replaceAll("\\$\\{\\d+:([^}]+)\\}", "$1"); // ${1:foo} -> foo
-        s = s.replaceAll("\\$\\d+", "");                 // $1, $2, $0 -> ""
+        s = s.replaceAll("\\$\\{\\d+:([^}]+)\\}", "$1");
+        s = s.replaceAll("\\$\\d+", "");
         return s;
     }
 
-
-
-// ---------- HTML detection + beautify ----------
+    // ---------- HTML detection + beautify ----------
     private boolean looksLikeHtmlDoc(String s) {
         if (s == null) return false;
         String t = s.toLowerCase();
         return t.contains("<!doctype") || t.contains("<html") || t.contains("<head") || t.contains("<body");
     }
+
     private String beautifyHtml(String raw) {
         if (raw == null) return "";
         try {
@@ -1352,6 +1664,7 @@ public class CodeEditorFragment extends Fragment {
             return naiveHtmlFormat(raw);
         }
     }
+
     private String naiveHtmlFormat(String raw) {
         String s = raw.replaceAll(">(\\s*)<", ">\n<").trim();
         String[] lines = s.split("\n");
@@ -1381,5 +1694,114 @@ public class CodeEditorFragment extends Fragment {
     private abstract static class SimpleTextWatcher implements android.text.TextWatcher {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void afterTextChanged(android.text.Editable s) {}
+    }
+
+    // ---------- added helpers ----------
+
+    /** send plain text to live container */
+    private void sendToLive(@NonNull String text) {
+        if (liveSocket != null) {
+            liveSocket.send(text);
+        } else {
+            printToConsole("(live not connected)\n");
+        }
+    }
+
+    /** get current content of a file by id */
+    private String getFileContentById(@NonNull String id) {
+        for (OpenFile f : availableFiles) {
+            if (id.equals(f.id)) return f.content != null ? f.content : "";
+        }
+        return "";
+    }
+
+    private List<ProjectFile> buildProjectFilesFromEditor() {
+        List<ProjectFile> out = new ArrayList<>();
+        for (OpenFile f : availableFiles) {
+            // f.id is your full path/name
+            out.add(new ProjectFile(f.id, f.content != null ? f.content : ""));
+        }
+        return out;
+    }
+
+    // ---------- tiny HTTP helpers ----------
+    private JSONObject httpPostJson(String urlStr, JSONObject json) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(60000);
+        conn.setDoOutput(true);
+
+        OutputStream os = conn.getOutputStream();
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
+        writer.write(json.toString());
+        writer.flush();
+        writer.close();
+        os.close();
+
+        int code = conn.getResponseCode();
+        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+        String body = readAll(is);
+        conn.disconnect();
+        if (code < 200 || code >= 300) {
+            throw new RuntimeException("POST " + urlStr + " -> " + code + ": " + body);
+        }
+        return new JSONObject(body);
+    }
+
+    private JSONObject httpPutJson(String urlStr, JSONObject json) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(60000);
+        conn.setDoOutput(true);
+
+        OutputStream os = conn.getOutputStream();
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
+        writer.write(json.toString());
+        writer.flush();
+        writer.close();
+        os.close();
+
+        int code = conn.getResponseCode();
+        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+        String body = readAll(is);
+        conn.disconnect();
+        if (code < 200 || code >= 300) {
+            throw new RuntimeException("PUT " + urlStr + " -> " + code + ": " + body);
+        }
+        return new JSONObject(body);
+    }
+
+    private JSONArray httpGetJsonArray(String urlStr) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(30000);
+        conn.connect();
+
+        int code = conn.getResponseCode();
+        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+        String body = readAll(is);
+        conn.disconnect();
+
+        if (code < 200 || code >= 300) {
+            throw new RuntimeException("GET " + urlStr + " -> " + code + ": " + body);
+        }
+        return new JSONArray(body);
+    }
+
+    private String readAll(InputStream is) throws Exception {
+        if (is == null) return "";
+        BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) {
+            sb.append(line).append('\n');
+        }
+        br.close();
+        return sb.toString();
     }
 }

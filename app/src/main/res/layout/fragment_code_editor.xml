@@ -5,137 +5,140 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#101015">
 
-    <!-- top chips you already had -->
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/backend_toggle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:singleSelection="true"
-        app:selectionRequired="true"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:padding="8dp">
-
-        <com.google.android.material.chip.Chip
-            android:id="@+id/toggle_auto"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Auto" />
-
-        <com.google.android.material.chip.Chip
-            android:id="@+id/toggle_judge0"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Fast" />
-
-        <com.google.android.material.chip.Chip
-            android:id="@+id/toggle_live"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Live" />
-    </com.google.android.material.chip.ChipGroup>
-
-    <!-- main row: left black bar + editor area -->
-    <LinearLayout
-        android:id="@+id/main_row"
+    <!-- main content area -->
+    <FrameLayout
+        android:id="@+id/editor_wrapper"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:orientation="horizontal"
-        app:layout_constraintTop_toBottomOf="@id/backend_toggle"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <!-- ALWAYS-VISIBLE BLACK BAR -->
+        <!-- editor column -->
         <LinearLayout
-            android:id="@+id/left_bar"
-            android:layout_width="48dp"
+            android:id="@+id/editor_container"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#000000"
-            android:orientation="vertical"
-            android:gravity="top|center_horizontal"
-            android:paddingTop="12dp">
+            android:orientation="vertical">
 
-            <!-- folder indicator -->
-            <ImageView
-                android:id="@+id/icon_files"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@android:drawable/ic_menu_manage"
-                app:tint="@android:color/white"
-                android:contentDescription="Files" />
-        </LinearLayout>
+            <!-- top bar: tabs + actions -->
+            <LinearLayout
+                android:id="@+id/top_tabs_bar"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:background="#222228"
+                android:elevation="2dp">
 
-        <!-- EDITOR AREA (Frame so we can overlay the popup panel) -->
-        <FrameLayout
-            android:id="@+id/editor_wrapper"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1">
+                <!-- tabs -->
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tab_layout"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    app:tabMode="scrollable"
+                    app:tabIndicatorColor="@android:color/white"
+                    app:tabSelectedTextColor="@android:color/white"
+                    app:tabTextColor="#B0B0B0"
+                    app:tabIndicatorHeight="2dp" />
 
-            <!-- actual editor -->
+                <!-- right-side actions -->
+                <LinearLayout
+                    android:id="@+id/tab_actions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingEnd="4dp">
+
+                    <!-- add file -->
+                    <ImageButton
+                        android:id="@+id/btn_add_file"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@android:color/transparent"
+                        app:tint="@android:color/white"
+                        android:src="@android:drawable/ic_input_add"
+                        android:contentDescription="Add file"
+                        android:padding="4dp" />
+
+                    <!-- close current tab -->
+                    <ImageButton
+                        android:id="@+id/btn_close_tab"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@android:color/transparent"
+                        app:tint="@android:color/white"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        android:contentDescription="Close tab"
+                        android:padding="4dp" />
+
+                    <!-- toggle files panel -->
+                    <ImageButton
+                        android:id="@+id/btn_toggle_files_panel"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@android:color/transparent"
+                        app:tint="@android:color/white"
+                        android:src="@android:drawable/ic_menu_sort_by_size"
+                        android:contentDescription="Files"
+                        android:padding="4dp" />
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- the code editor -->
             <io.github.rosemoe.sora.widget.CodeEditor
                 android:id="@+id/code_editor"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:importantForAccessibility="no"
-                tools:ignore="SpeakableTextPresentCheck"
-                tools:text="// Write your code here" />
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                tools:text="// Write your code here"
+                android:background="#101015" />
+        </LinearLayout>
 
-            <!-- Inline completion overlay (faint ghost text + Accept/Dismiss) -->
-            <LinearLayout
-                android:id="@+id/inline_ac_container"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="4dp"
-                android:visibility="gone">
+        <!-- files panel overlay -->
+        <LinearLayout
+            android:id="@+id/files_panel"
+            android:layout_width="240dp"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#151519"
+            android:visibility="gone"
+            android:elevation="8dp">
 
-                <TextView
-                    android:id="@+id/inline_ac_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="#888888"
-                    android:textSize="14sp"
-                    android:fontFamily="monospace"
-                    android:textStyle="italic"
-                    android:maxLines="4"
-                    android:ellipsize="end"
-                    android:alpha="0.8" />
-            </LinearLayout>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:text="Files"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textSize="15sp" />
 
-            <!-- POPUP FILE PANEL (hidden, slides over editor) -->
-            <LinearLayout
-                android:id="@+id/files_panel"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:background="#121212"
-                android:elevation="12dp"
-                android:visibility="gone">
+            <!-- we swapped the RecyclerView for a scroll + linear so we can define row shape here -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/files_list_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Files"
-                    android:textColor="@android:color/white"
-                    android:textStyle="bold"
-                    android:padding="12dp" />
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/files_list"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:scrollbars="vertical" />
-            </LinearLayout>
+    </FrameLayout>
 
-        </FrameLayout>
-    </LinearLayout>
-
-    <!-- Run FAB as before -->
+    <!-- run FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/btn_run"
         android:layout_width="wrap_content"
@@ -143,8 +146,10 @@
         android:layout_margin="16dp"
         app:srcCompat="@android:drawable/ic_media_play"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        android:tint="@android:color/white" />
 
+    <!-- little spinner -->
     <ProgressBar
         android:id="@+id/progress"
         style="?android:attr/progressBarStyleSmall"

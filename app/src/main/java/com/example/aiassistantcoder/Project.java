@@ -17,21 +17,24 @@ public class Project implements Serializable {
     private List<String> tags;
     private String code;
 
+    private List<ProjectFile> files;
+
     public Project() {
-        // No-argument constructor required for Firestore
         this.messages = new ArrayList<>();
         this.tags = new ArrayList<>();
-        this.createdAt = new Date(); // Ensure date is never null
+        this.createdAt = new Date();
+        this.files = new ArrayList<>(); // 👈 start empty
     }
 
     public Project(String title) {
         this.title = title;
-        this.createdAt = new Date(); // Set current date on creation
+        this.createdAt = new Date();
         this.messages = new ArrayList<>();
         this.tags = new ArrayList<>();
+        this.files = new ArrayList<>(); // 👈 start empty
     }
 
-    // Getters
+    // getters
     public String getId() { return id; }
     public String getTitle() { return title; }
     @ServerTimestamp
@@ -40,13 +43,19 @@ public class Project implements Serializable {
     public List<String> getTags() { return tags; }
     public String getCode() { return code; }
 
-    // Setters
+    // 👇 NEW
+    public List<ProjectFile> getFiles() { return files; }
+
+    // setters
     public void setId(String id) { this.id = id; }
     public void setTitle(String title) { this.title = title; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
     public void setMessages(List<Message> messages) { this.messages = messages; }
     public void setTags(List<String> tags) { this.tags = tags; }
     public void setCode(String code) { this.code = code; }
+
+    // 👇 NEW
+    public void setFiles(List<ProjectFile> files) { this.files = files; }
 
     public void addMessage(Message message) {
         if (this.messages == null) {
@@ -62,7 +71,6 @@ public class Project implements Serializable {
         return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(createdAt);
     }
 
-    // This setter is for compatibility with older versions of the app
     public void setDate(Date date) {
         this.createdAt = date;
     }
