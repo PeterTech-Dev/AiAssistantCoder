@@ -1,12 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.AiAssistantCoder" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:windowBackground">@color/backgroundColor</item>
-        <item name="android:textColor">@color/textColorPrimary</item>
+    <style name="Theme.AiAssistantCoder" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- make sure there is NO action bar in this theme -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+        <!-- copy the rest of your items from the day theme if needed -->
+        <item name="colorPrimary">@color/blue</item>
+        <item name="colorPrimaryContainer">@color/blue_light</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <item name="colorSecondary">@color/purple</item>
+        <item name="colorSecondaryContainer">@color/purple_light</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <item name="android:windowBackground">@drawable/bg_gradient</item>
+        <item name="colorSurface">@color/bg_third</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorError">@color/red</item>
+        <item name="colorOnError">@color/white</item>
+
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/bg_primary</item>
+
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/grey</item>
+
+        <item name="materialButtonStyle">@style/App.Button.Primary</item>
+        <item name="materialButtonOutlinedStyle">@style/App.Button.Outlined</item>
+        <item name="textInputStyle">@style/App.TextInput</item>
+        <item name="bottomNavigationStyle">@style/App.BottomNav</item>
+        <item name="materialCardViewStyle">@style/App.Card</item>
     </style>
 
 </resources>

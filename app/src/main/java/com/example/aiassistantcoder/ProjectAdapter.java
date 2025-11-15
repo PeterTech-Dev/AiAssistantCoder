@@ -1,15 +1,11 @@
 package com.example.aiassistantcoder;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -47,58 +43,16 @@ public class ProjectAdapter extends RecyclerView.Adapter<ProjectAdapter.ProjectV
             holder.projectDate.setText("");
         }
 
-        // open project
+        // Open project on click
         holder.itemView.setOnClickListener(v -> {
-            Intent intent = new Intent(v.getContext(), ResponseActivity.class);
-            intent.putExtra("projectTitle", project.getTitle());
-            v.getContext().startActivity(intent);
-        });
-
-        // delete project
-        holder.deleteButton.setOnClickListener(v -> {
-            ProjectRepository.getInstance().deleteProject(project);
-            Toast.makeText(v.getContext(), "Project deleted", Toast.LENGTH_SHORT).show();
-        });
-
-        // rename project (pencil)
-        holder.renameButton.setOnClickListener(v -> {
             Context context = v.getContext();
-
-            EditText input = new EditText(context);
-            input.setText(project.getTitle());
-            input.setSelection(input.getText().length());
-
-            new AlertDialog.Builder(context)
-                    .setTitle("Rename Project")
-                    .setView(input)
-                    .setPositiveButton("Save", (dialog, which) -> {
-                        String newTitle = input.getText().toString().trim();
-                        if (newTitle.isEmpty()) {
-                            Toast.makeText(context, "Title cannot be empty", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-
-                        // update local object
-                        project.setTitle(newTitle);
-                        notifyItemChanged(holder.getAdapterPosition());
-
-                        // persist to Firestore
-                        ProjectRepository.getInstance()
-                                .saveProjectToFirestore(project, new ProjectRepository.ProjectSaveCallback() {
-                                    @Override
-                                    public void onSaved(String projectId) {
-                                        Toast.makeText(context, "Project renamed", Toast.LENGTH_SHORT).show();
-                                    }
-
-                                    @Override
-                                    public void onError(Exception e) {
-                                        Toast.makeText(context, "Rename failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
+            Intent intent = new Intent(context, ResponseActivity.class);
+            intent.putExtra("projectTitle", project.getTitle());
+            context.startActivity(intent);
         });
+
+        // Delete / rename handled by swipe in ProjectsFragment now,
+        // so no button click listeners here.
     }
 
     @Override
@@ -106,16 +60,24 @@ public class ProjectAdapter extends RecyclerView.Adapter<ProjectAdapter.ProjectV
         return projectList.size();
     }
 
+    public Project getItem(int position) {
+        return projectList.get(position);
+    }
+
     public static class ProjectViewHolder extends RecyclerView.ViewHolder {
-        TextView projectTitle, projectDate;
-        ImageButton deleteButton, renameButton;
+        public final View foreground;   // sliding content
+        public final View bgDelete;     // red overlay (left)
+        public final View bgEdit;       // blue overlay (right)
+        public final TextView projectTitle;
+        public final TextView projectDate;
 
         public ProjectViewHolder(@NonNull View itemView) {
             super(itemView);
+            foreground = itemView.findViewById(R.id.foreground);
+            bgDelete = itemView.findViewById(R.id.bg_delete);
+            bgEdit = itemView.findViewById(R.id.bg_edit);
             projectTitle = itemView.findViewById(R.id.project_title);
             projectDate = itemView.findViewById(R.id.project_date);
-            deleteButton = itemView.findViewById(R.id.delete_project_button);
-            renameButton = itemView.findViewById(R.id.rename_project_button);
         }
     }
 }

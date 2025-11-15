@@ -1,88 +1,139 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:layout_height="match_parent">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/contentWrapper"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="24dp"
-        android:background="@color/backgroundColor">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Hero illustration (Compose instead of ImageView) -->
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/compose_hero"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/title"
+            app:layout_constraintHeight_default="percent"
+            app:layout_constraintHeight_percent="0.50" />
+
+        <!-- Title -->
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/title"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:text="AI Coding Assistant"
-            android:textSize="24sp"
+            android:textColor="@color/white"
             android:textStyle="bold"
-            android:textColor="@color/textColorPrimary"
-            android:layout_marginBottom="32dp"/>
+            android:textSize="28sp"
+            android:gravity="center"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            app:layout_constraintTop_toBottomOf="@id/compose_hero"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- Input container -->
         <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
+            android:id="@+id/inputLayout"
+            style="@style/App.TextInput"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:hint="Describe your coding problem..."
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginTop="20dp"
+            app:endIconMode="custom"
+            app:endIconDrawable="@drawable/ic_attach_image"
+            app:endIconTint="@color/grey"
+            app:layout_constraintTop_toBottomOf="@id/title"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/search_bar"
+                style="@style/App.TextInput.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Describe your coding problem..."
                 android:inputType="textMultiLine"
+                android:minLines="3"
                 android:maxLines="6"
-                android:scrollbars="vertical"
-                android:padding="16dp" />
+                android:padding="0dp"
+                android:background="@null" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <ImageButton
-            android:id="@+id/image_input"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_attach_image"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:tooltipText="Add Image"
-            android:layout_marginTop="16dp"/>
-
+        <!-- Preview container -->
         <RelativeLayout
             android:id="@+id/image_preview_container_home"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_marginTop="8dp"
-            android:visibility="gone">
+            android:layout_width="110dp"
+            android:layout_height="110dp"
+            android:layout_marginTop="12dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/inputLayout"
+            app:layout_constraintStart_toStartOf="@id/inputLayout">
 
             <ImageView
                 android:id="@+id/image_preview_home"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="centerCrop"/>
+                android:scaleType="centerCrop" />
 
             <ImageButton
                 android:id="@+id/remove_image_button_home"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/ic_close"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                app:srcCompat="@drawable/ic_close"
+                app:tint="@color/white"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Remove image"
                 android:layout_alignParentTop="true"
                 android:layout_alignParentEnd="true"
-                android:background="?attr/selectableItemBackgroundBorderless" />
-
+                android:layout_margin="4dp" />
         </RelativeLayout>
 
-        <Button
-            android:id="@+id/submit_button"
-            android:layout_width="wrap_content"
+        <!-- Primary CTA (Compose button) -->
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/compose_button"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Generate Code"
-            android:layout_marginTop="24dp"/>
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginLeft="24dp"
+            android:layout_marginRight="24dp"
+            app:layout_constraintTop_toBottomOf="@id/image_preview_container_home"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- Loading indicator -->
         <ProgressBar
             android:id="@+id/loading_indicator"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:indeterminateTint="@color/purple_blue"
+            android:visibility="gone"
             android:layout_marginTop="16dp"
-            android:visibility="gone"/>
+            android:layout_marginBottom="32dp"
+            app:layout_constraintTop_toBottomOf="@id/compose_button"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-    </LinearLayout>
-</ScrollView>
+        <!-- Spacer at bottom so content doesn’t hug nav bar -->
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

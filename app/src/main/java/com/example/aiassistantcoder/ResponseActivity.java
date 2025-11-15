@@ -105,9 +105,7 @@ public class ResponseActivity extends AppCompatActivity implements CodeEditorFra
         editorArgs.putString("ai_notes", aiNotes);
         editorArgs.putString("ai_project_json", aiProjectJson);
 
-        String j0   = getIntent().getStringExtra("judge0_base_url");
         String live = getIntent().getStringExtra("live_base_url");
-        if (j0 != null)   editorArgs.putString("judge0_base_url", j0);
         if (live != null) editorArgs.putString("live_base_url", live);
 
         codeEditorFragment.setArguments(editorArgs);

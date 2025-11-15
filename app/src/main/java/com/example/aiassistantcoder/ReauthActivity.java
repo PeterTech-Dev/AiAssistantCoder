@@ -1,22 +1,24 @@
 package com.example.aiassistantcoder;
 
 import android.os.Bundle;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.compose.ui.platform.ComposeView;
 
+import com.example.aiassistantcoder.ui.ProfileKt;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
+import kotlin.Unit;
+import kotlin.jvm.functions.Function1;
+
 public class ReauthActivity extends AppCompatActivity {
 
-    private EditText passwordField;
-    private Button submitButton;
     private FirebaseAuth mAuth;
+    private ComposeView composeView;  // we'll reuse this for both steps
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,60 +26,90 @@ public class ReauthActivity extends AppCompatActivity {
         setContentView(R.layout.activity_reauth);
 
         mAuth = FirebaseAuth.getInstance();
-        passwordField = findViewById(R.id.password_field_reauth);
-        submitButton = findViewById(R.id.submit_button_reauth);
+        composeView = findViewById(R.id.compose_reauth);
 
-        submitButton.setOnClickListener(v -> {
-            String password = passwordField.getText().toString();
-            if (password.isEmpty()) {
-                Toast.makeText(this, "Please enter your password", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            FirebaseUser user = mAuth.getCurrentUser();
-            if (user != null && user.getEmail() != null) {
-                AuthCredential credential = EmailAuthProvider.getCredential(user.getEmail(), password);
-                user.reauthenticate(credential)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                // Re-authentication successful, now prompt for new password
-                                showNewPasswordDialog();
-                            } else {
-                                Toast.makeText(ReauthActivity.this, "Re-authentication failed.", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-            }
-        });
+        showReauthStep();
     }
 
-    private void showNewPasswordDialog() {
-        // In a real app, you would use a DialogFragment for this.
-        // For simplicity, we'll just use a simple EditText and Button in the same activity for now.
-        setContentView(R.layout.activity_new_password); // A new layout for entering the new password
+    /** Step 1: ask user for their current password and re-authenticate them. */
+    private void showReauthStep() {
+        ProfileKt.bindReauthPasswordContent(
+                composeView,
+                new Function1<String, Unit>() {
+                    @Override
+                    public Unit invoke(String password) {
+                        String pwd = password == null ? "" : password.trim();
+                        if (pwd.isEmpty()) {
+                            Toast.makeText(ReauthActivity.this,
+                                    "Please enter your password",
+                                    Toast.LENGTH_SHORT).show();
+                            return Unit.INSTANCE;
+                        }
 
-        EditText newPasswordField = findViewById(R.id.new_password_field);
-        Button updatePasswordButton = findViewById(R.id.update_password_button);
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        if (user == null || user.getEmail() == null) {
+                            Toast.makeText(ReauthActivity.this,
+                                    "No logged-in user.",
+                                    Toast.LENGTH_SHORT).show();
+                            return Unit.INSTANCE;
+                        }
 
-        updatePasswordButton.setOnClickListener(v -> {
-            String newPassword = newPasswordField.getText().toString();
-            if (newPassword.length() < 6) {
-                Toast.makeText(this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                        AuthCredential credential =
+                                EmailAuthProvider.getCredential(user.getEmail(), pwd);
 
-            FirebaseUser user = mAuth.getCurrentUser();
-            if (user != null) {
-                user.updatePassword(newPassword)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Toast.makeText(ReauthActivity.this, "Password updated. Please log in again.", Toast.LENGTH_LONG).show();
-                                mAuth.signOut();
-                                finish();
-                            } else {
-                                Toast.makeText(ReauthActivity.this, "Failed to update password.", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-            }
-        });
+                        user.reauthenticate(credential)
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        // Go to step 2 (new password screen)
+                                        showNewPasswordStep();
+                                    } else {
+                                        Toast.makeText(ReauthActivity.this,
+                                                "Re-authentication failed.",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+
+                        return Unit.INSTANCE;
+                    }
+                }
+        );
+    }
+
+    /** Step 2: ask for new password (Compose validates length & confirm) and update in Firebase. */
+    private void showNewPasswordStep() {
+        ProfileKt.bindNewPasswordContent(
+                composeView,
+                new Function1<String, Unit>() {
+                    @Override
+                    public Unit invoke(String newPassword) {
+                        String np = newPassword == null ? "" : newPassword.trim();
+
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        if (user == null) {
+                            Toast.makeText(ReauthActivity.this,
+                                    "No logged-in user.",
+                                    Toast.LENGTH_SHORT).show();
+                            return Unit.INSTANCE;
+                        }
+
+                        user.updatePassword(np)
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        Toast.makeText(ReauthActivity.this,
+                                                "Password updated. Please log in again.",
+                                                Toast.LENGTH_LONG).show();
+                                        mAuth.signOut();
+                                        finish();
+                                    } else {
+                                        Toast.makeText(ReauthActivity.this,
+                                                "Failed to update password.",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+
+                        return Unit.INSTANCE;
+                    }
+                }
+        );
     }
 }

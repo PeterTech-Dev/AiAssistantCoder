@@ -1,11 +1,9 @@
 package com.example.aiassistantcoder;
 
-import com.example.aiassistantcoder.LiveRunManager;
-
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.InputType;
+import android.widget.Toast;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewParent;
@@ -176,11 +174,6 @@ public class CodeEditorFragment extends Fragment {
     // AI hints (optional)
     private String aiLang, aiRuntime, aiRunnerHint;
     private String aiEntrypoint;
-
-    // Judge0
-    private String judge0BaseUrl = "http://10.0.2.2:2358";
-    private final Map<String, Integer> languageMap = new HashMap<>();
-    private String stdinText = "";
 
     // Live runner
     private String liveBaseUrl = "http://10.0.2.2:8080";
@@ -517,14 +510,8 @@ public class CodeEditorFragment extends Fragment {
 
             ingestAiProjectJson(projectJson);
 
-            String j0Override = args.getString("judge0_base_url");
-            if (j0Override != null && !j0Override.trim().isEmpty()) judge0BaseUrl = j0Override.trim();
-
             String liveOverride = args.getString("live_base_url");
             if (liveOverride != null && !liveOverride.trim().isEmpty()) liveBaseUrl = liveOverride.trim();
-
-            String stdinArg = args.getString("stdin");
-            if (stdinArg != null) stdinText = stdinArg;
         }
 
         if ((aiLang != null && !aiLang.isEmpty()) || (aiRuntime != null && !aiRuntime.isEmpty())) {
@@ -1557,11 +1544,23 @@ public class CodeEditorFragment extends Fragment {
     }
 
     private boolean alreadyHasFile(@NonNull String id) {
+        String norm = normalizePath(id);
         for (OpenFile f : availableFiles) {
-            if (id.equals(f.id)) return true;
+            if (normalizePath(f.id).equals(norm)) {
+                return true;
+            }
         }
         return false;
     }
+
+    private String normalizePath(String p) {
+        if (p == null) return "";
+        if (p.startsWith("./")) {
+            p = p.substring(2);
+        }
+        return p.trim().toLowerCase();
+    }
+
 
     private void updateOpenFileContent(@NonNull String id, @NonNull String newContent) {
         for (OpenFile f : availableFiles) {
@@ -1591,7 +1590,7 @@ public class CodeEditorFragment extends Fragment {
         if (getContext() == null) return;
 
         final EditText input = new EditText(getContext());
-        input.setHint("e.g. main.py or lib/utils.py");
+        input.setHint("e.g. main.py or game/logic.py");
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         input.setPadding(pad, pad, pad, pad);
 
@@ -1601,6 +1600,15 @@ public class CodeEditorFragment extends Fragment {
                 .setPositiveButton("Create", (d, w) -> {
                     String name = input.getText().toString().trim();
                     if (name.isEmpty()) return;
+
+                    if (alreadyHasFile(name)) {
+                        printToConsole("File \"" + name + "\" already exists.\n");
+                        Toast.makeText(requireContext(),
+                                "A file with that name already exists",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
                     OpenFile of = new OpenFile(name, name, "");
                     aiManagedFiles.put(name, Boolean.FALSE);
                     addAvailableFileFromOutside(of);
@@ -1608,6 +1616,7 @@ public class CodeEditorFragment extends Fragment {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+
 
     private String currentLanguageKey() {
         String l = (aiLang == null ? "" : aiLang.trim().toLowerCase());

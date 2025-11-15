@@ -1,14 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#1976D2</color>
-    <color name="colorPrimaryDark">#004BA0</color>
-    <color name="colorAccent">#64B5F6</color>
+    <!-- Backgrounds (Dark Mode Base) -->
+    <color name="bg_primary">#0A0B13</color>     <!-- Almost-black indigo -->
+    <color name="bg_secondary">#10121F</color>   <!-- Slightly lighter -->
+    <color name="bg_third">#151728</color>       <!-- Soft indigo shadow -->
 
-    <color name="backgroundColor">#FFFFFF</color>
-    <color name="cardBackgroundColor">#F8F9FA</color>
-    <color name="textColorPrimary">#212121</color>
-    <color name="textColorSecondary">#757575</color>
+    <!-- Brand / Gradient Colors (Deep Purple → Indigo vibe) -->
+    <color name="purple_blue">#5C6BC0</color>    <!-- Indigo 400 -->
+    <color name="purple_light">#7E57C2</color>   <!-- Deep Purple 400 -->
+    <color name="purple">#673AB7</color>         <!-- Deep Purple 500 (brand color) -->
 
-    <color name="chatBubbleUser">#E3F2FD</color>
-    <color name="chatBubbleAi">#F1F1F1</color>
+    <!-- Whites / Grays (Cool Gray for Tech UI) -->
+    <color name="white">#ECEFF4</color>          <!-- Soft cool white -->
+    <color name="grey">#AEB6C8</color>           <!-- Clean grey -->
+    <color name="grey_dark">#5C6373</color>      <!-- Muted grey for icons -->
+
+    <!-- Blues (Indigo Accent Set) -->
+    <color name="blue_bright">#2979FF</color>
+    <color name="blue_light">#536DFE</color>     <!-- Indigo A200 -->
+    <color name="blue">#3D5AFE</color>           <!-- Indigo A400 -->
+    <color name="blue_dark">#283593</color>      <!-- Indigo 800 -->
+
+    <!-- Reds (Premium Alert Colors) -->
+    <color name="red_light">#FF5252</color>      <!-- Accent red -->
+    <color name="red">#FF1744</color>            <!-- Deep A400 red -->
+    <color name="red_dark">#B2102F</color>       <!-- Dark red -->
 </resources>
+

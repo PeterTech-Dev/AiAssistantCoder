@@ -13,6 +13,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
+import androidx.compose.ui.platform.ComposeView;
+import com.example.aiassistantcoder.ui.NeonBottomBarKt;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.FirebaseApp;
@@ -32,27 +34,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        // ---- 1) Load prefs BEFORE super.onCreate to apply theme/night mode early ----
+        // prefs/theme stuff unchanged...
         SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-
-        // Night mode: set an explicit mode either way (fixes “switches to light in Settings”)
         boolean useDarkTheme = preferences.getBoolean(PREF_DARK_THEME, false);
         AppCompatDelegate.setDefaultNightMode(
                 useDarkTheme ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO
         );
-
-        // Font theme (scoped app theme variants)
         String font = preferences.getString(PREF_FONT, "Default");
         switch (font) {
-            case "Roboto":
-                setTheme(R.style.Theme_AiAssistantCoder_Roboto);
-                break;
-            case "Open Sans":
-                setTheme(R.style.Theme_AiAssistantCoder_OpenSans);
-                break;
-            case "Lato":
-                setTheme(R.style.Theme_AiAssistantCoder_Lato);
-                break;
             default:
                 setTheme(R.style.Theme_AiAssistantCoder);
                 break;
@@ -61,83 +50,61 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ---- 2) Edge-to-edge + safe-area padding for content and bottom nav ----
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
         final View container = findViewById(R.id.fragment_container);
-        final BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        final View bottomBar = findViewById(R.id.compose_bottom_nav);
 
-        // Apply insets: add top padding to container; bottom padding to container & nav
+        // Insets handling
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
 
-            // Top padding for content (so first fragment isn't under the status bar/camera cutout)
             if (container != null) {
+                // top padding so content isn't under status bar
                 container.setPadding(
                         container.getPaddingLeft(),
                         bars.top,
                         container.getPaddingRight(),
                         container.getPaddingBottom()
                 );
-            }
 
-            // Bottom padding for both the container and the nav (gesture bar/home area)
-            if (container != null) {
+                // bottom padding so content scrolls above nav/gesture
                 container.setPadding(
                         container.getPaddingLeft(),
                         container.getPaddingTop(),
                         container.getPaddingRight(),
-                        bars.bottom // make content scroll above the nav/gesture area
+                        bars.bottom
                 );
             }
-            if (bottomNav != null) {
-                bottomNav.setPadding(
-                        bottomNav.getPaddingLeft(),
-                        bottomNav.getPaddingTop(),
-                        bottomNav.getPaddingRight(),
+            // optional: bottom padding for the compose nav bar if you need it
+            if (bottomBar != null) {
+                bottomBar.setPadding(
+                        bottomBar.getPaddingLeft(),
+                        bottomBar.getPaddingTop(),
+                        bottomBar.getPaddingRight(),
                         bars.bottom
                 );
             }
             return insets;
         });
 
-        // ---- 3) Firebase init + offline cache ----
+        // Firebase init (unchanged)
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseApp.initializeApp(this);
             Log.d(TAG, "Firebase manually initialized.");
         }
-
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
         FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
                 .setPersistenceEnabled(true)
                 .build();
         firestore.setFirestoreSettings(settings);
-
         verifyFirebaseConnection();
 
-        // ---- 4) Bottom navigation ----
-        bottomNav.setOnItemSelectedListener(item -> {
-            Fragment selectedFragment = null;
-            int itemId = item.getItemId();
-
-            if (itemId == R.id.navigation_home) {
-                selectedFragment = new HomeFragment();
-            } else if (itemId == R.id.navigation_projects) {
-                selectedFragment = new ProjectsFragment();
-            } else if (itemId == R.id.navigation_settings) {
-                selectedFragment = new SettingsFragment();
-            } else if (itemId == R.id.navigation_profile) {
-                selectedFragment = new ProfileFragment();
-            }
-
-            if (selectedFragment != null) {
-                getSupportFragmentManager()
-                        .beginTransaction()
-                        .replace(R.id.fragment_container, selectedFragment)
-                        .commit();
-            }
-            return true;
-        });
+        // 🚀 Compose bottom bar
+        ComposeView composeBottomNav = findViewById(R.id.compose_bottom_nav);
+        if (composeBottomNav != null) {
+            NeonBottomBarKt.setupNeonBottomBar(composeBottomNav, this);
+        }
 
         // Default tab
         if (savedInstanceState == null) {

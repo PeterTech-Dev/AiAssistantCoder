@@ -10,7 +10,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -18,6 +23,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import androidx.compose.ui.platform.ComposeView;
+
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -47,8 +55,7 @@ public class HomeFragment extends Fragment {
     private static final String TAG = "HomeFragment";
 
     private EditText searchBar;
-    private ImageView imageInput;
-    private Button submitButton;
+    private TextInputLayout inputLayout;          // NEW: reference to TextInputLayout
     private ProgressBar loadingIndicator;
     private ImageView imagePreview;
     private RelativeLayout imagePreviewContainer;
@@ -85,37 +92,42 @@ public class HomeFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        // debugger
         Log.d(TAG, "onCreateView: HomeFragment created");
 
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
+        // ---- UI refs ----
         searchBar = view.findViewById(R.id.search_bar);
-        imageInput = view.findViewById(R.id.image_input);
-        submitButton = view.findViewById(R.id.submit_button);
+        inputLayout = view.findViewById(R.id.inputLayout);                    // ✅ correct type
         loadingIndicator = view.findViewById(R.id.loading_indicator);
         imagePreview = view.findViewById(R.id.image_preview_home);
         imagePreviewContainer = view.findViewById(R.id.image_preview_container_home);
         ImageButton removeImageButton = view.findViewById(R.id.remove_image_button_home);
 
-        imageInput.setOnClickListener(v -> {
-            // debugger
-            Log.d(TAG, "Image input clicked");
+        // ---- Use TextInputLayout end icon as "pick image" button ----
+        inputLayout.setEndIconOnClickListener(v -> {
+            Log.d(TAG, "End icon clicked (image input)");
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             pickImage.launch(intent);
         });
 
+        // ---- Remove image button ----
         removeImageButton.setOnClickListener(v -> {
-            // debugger
             Log.d(TAG, "Remove image clicked");
             selectedImageBitmap = null;
             imagePreviewContainer.setVisibility(View.GONE);
         });
 
-        submitButton.setOnClickListener(v -> {
-            // debugger
-            Log.d(TAG, "Submit button clicked");
-            submitToGemini();
+        ComposeView composeHero = view.findViewById(R.id.compose_hero);
+        HomeCompose.INSTANCE.setupHero(composeHero);
+
+        ComposeView composeButton = view.findViewById(R.id.compose_button);
+        HomeCompose.INSTANCE.setupButton(composeButton, new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "Submit button clicked");
+                submitToGemini();
+            }
         });
 
         return view;

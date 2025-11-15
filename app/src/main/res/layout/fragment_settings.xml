@@ -1,60 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@color/backgroundColor">
+    android:padding="24dp">
 
+    <!-- Static header text stays in XML -->
     <TextView
+        android:id="@+id/settings_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Settings"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:layout_marginBottom="32dp"/>
+        android:textColor="@color/white"
+        android:layout_marginBottom="24dp" />
 
-    <com.google.android.material.switchmaterial.SwitchMaterial
-        android:id="@+id/theme_switch"
+    <!-- Compose draws all the settings UI -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/settings_compose"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Dark Mode"        
-        android:textSize="18sp"/>
-
-    <com.google.android.material.switchmaterial.SwitchMaterial
-        android:id="@+id/switch_auto_apply"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Auto-apply AI code to editor" />
-
-    <com.google.android.material.switchmaterial.SwitchMaterial
-        android:id="@+id/switch_show_diffs"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Show diff preview" />
-
-
-    <!-- Editor font -->
-    <Spinner
-        android:id="@+id/spinner_editor_font"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Change Code Editor Font" />
-
-    <!-- Console font -->
-    <Spinner
-        android:id="@+id/spinner_console_font"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Change Console Editor Font" />
-
-    <Button
-        android:id="@+id/clear_history_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Clear Project History"
-        android:layout_marginTop="32dp"/>
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
 </LinearLayout>

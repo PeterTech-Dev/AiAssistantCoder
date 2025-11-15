@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Shared rounded shape -->
+    <style name="App.Shape.MD" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <!-- Primary (gradient) button -->
+    <style name="App.Button.Primary" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/button_primary</item>
+        <item name="backgroundTint">@null</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+    </style>
+
+    <!-- Outlined button -->
+    <style name="App.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/blue_light</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">16dp</item>
+    </style>
+
+    <!-- TextInputLayout (the container) -->
+    <style name="App.TextInput" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxBackgroundColor">@color/bg_third</item>
+        <item name="boxStrokeColor">@color/input_box_stroke_color</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="hintTextColor">@color/grey</item>
+        <item name="shapeAppearance">@style/App.Shape.MD</item>
+    </style>
+
+    <!-- TextInputEditText (the field inside) -->
+    <style name="App.TextInput.EditText" parent="Widget.Material3.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textColorHint">@color/grey</item>
+    </style>
+
+    <!-- Bottom nav -->
+    <style name="App.BottomNav" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemIconTint">@color/nav_icon_tint</item>
+        <item name="itemTextColor">@color/nav_icon_tint</item>
+        <item name="android:background">@color/bg_secondary</item>
+        <item name="itemActiveIndicatorStyle">@style/App.BottomNav.ActiveIndicator</item>
+    </style>
+
+
+    <!-- Active indicator “pill” behind selected icon -->
+    <style name="App.BottomNav.ActiveIndicator"
+        parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+
+        <!-- Color -->
+        <item name="android:color">#445C6BC0</item>
+
+        <!-- Size -->
+        <item name="android:width">64dp</item>
+        <item name="android:height">40dp</item>
+
+        <!-- Shape -->
+        <item name="shapeAppearance">@style/App.Shape.MD</item>
+
+        <!-- Horizontal margin around pill -->
+        <item name="marginHorizontal">8dp</item>
+
+        <!-- Space between indicator and label -->
+        <item name="activeIndicatorLabelPadding">300dp</item>
+    </style>
+
+
+
+    <!-- Cards -->
+    <style name="App.Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="android:background">@color/bg_third</item>
+        <item name="shapeAppearance">@style/App.Shape.MD</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+
+    <!-- Dialog -->
+    <style name="ThemeOverlay.AiAssistantCoder.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/bg_third</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="shapeAppearanceMediumComponent">@style/App.Shape.MD</item>
+    </style>
+
+    <!-- Bottom sheet -->
+    <style name="ThemeOverlay.AiAssistantCoder.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="colorSurface">@color/bg_third</item>
+        <item name="colorOnSurface">@color/white</item>
+    </style>
+
+
+</resources>
