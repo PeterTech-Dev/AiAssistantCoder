@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Backgrounds (Light Mode Base) -->
+    <color name="bg_primary">#F3F4F6</color>     <!-- App background -->
+    <color name="bg_secondary">#FFFFFF</color>   <!-- Cards / surfaces -->
+    <color name="bg_third">#E5E7EB</color>      <!-- Elevated surfaces / inputs -->
+
+    <!-- Brand / Gradient Colors (same as dark) -->
+    <color name="purple_blue">#5C6BC0</color>
+    <color name="purple_light">#7E57C2</color>
+    <color name="purple">#673AB7</color>
+
+    <!-- Text / Grays (for light) -->
+    <color name="white">#FFFFFF</color>         <!-- Real white now -->
+    <color name="grey">#6B7280</color>          <!-- Body text -->
+    <color name="grey_dark">#111827</color>     <!-- Strong title text -->
+
+    <!-- Blues (keep your brand accents) -->
+    <color name="blue_bright">#2979FF</color>
+    <color name="blue_light">#536DFE</color>
+    <color name="blue">#3D5AFE</color>
+    <color name="blue_dark">#1E3A8A</color>
+
+    <!-- Reds -->
+    <color name="red_light">#EF4444</color>
+    <color name="red">#DC2626</color>
+    <color name="red_dark">#991B1B</color>
+
+</resources>

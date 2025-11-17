@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#101015">
+
+    <!-- main content area -->
+    <FrameLayout
+        android:id="@+id/editor_wrapper"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- editor column -->
+        <LinearLayout
+            android:id="@+id/editor_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- top bar: tabs + actions -->
+            <LinearLayout
+                android:id="@+id/top_tabs_bar"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:background="#222228"
+                android:elevation="2dp">
+
+                <!-- tabs -->
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tab_layout"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    app:tabMode="scrollable"
+                    app:tabIndicatorColor="@android:color/white"
+                    app:tabSelectedTextColor="@android:color/white"
+                    app:tabTextColor="#B0B0B0"
+                    app:tabIndicatorHeight="2dp" />
+
+                <!-- right-side actions -->
+                <LinearLayout
+                    android:id="@+id/tab_actions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingEnd="4dp">
+
+                    <!-- add file -->
+                    <ImageButton
+                        android:id="@+id/btn_add_file"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@android:color/transparent"
+                        app:tint="@android:color/white"
+                        android:src="@android:drawable/ic_input_add"
+                        android:contentDescription="Add file"
+                        android:padding="4dp" />
+
+                    <!-- close current tab -->
+                    <ImageButton
+                        android:id="@+id/btn_close_tab"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@android:color/transparent"
+                        app:tint="@android:color/white"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        android:contentDescription="Close tab"
+                        android:padding="4dp" />
+
+                    <!-- toggle files panel -->
+                    <ImageButton
+                        android:id="@+id/btn_toggle_files_panel"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@android:color/transparent"
+                        app:tint="@android:color/white"
+                        android:src="@android:drawable/ic_menu_sort_by_size"
+                        android:contentDescription="Files"
+                        android:padding="4dp" />
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- the code editor -->
+            <io.github.rosemoe.sora.widget.CodeEditor
+                android:id="@+id/code_editor"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                tools:text="// Write your code here"
+                android:background="#101015" />
+        </LinearLayout>
+
+        <!-- files panel overlay -->
+        <LinearLayout
+            android:id="@+id/files_panel"
+            android:layout_width="240dp"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#151519"
+            android:visibility="gone"
+            android:elevation="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:text="Files"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+
+            <!-- we swapped the RecyclerView for a scroll + linear so we can define row shape here -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:id="@+id/files_list_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <!-- run FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btn_run"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:srcCompat="@android:drawable/ic_media_play"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:tint="@android:color/white" />
+
+    <!-- little spinner -->
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
