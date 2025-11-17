@@ -1,29 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Backgrounds (Dark Mode Base) -->
-    <color name="bg_primary">#0A0B13</color>     <!-- Almost-black indigo -->
-    <color name="bg_secondary">#10121F</color>   <!-- Slightly lighter -->
-    <color name="bg_third">#151728</color>       <!-- Soft indigo shadow -->
 
-    <!-- Brand / Gradient Colors (Deep Purple → Indigo vibe) -->
-    <color name="purple_blue">#5C6BC0</color>    <!-- Indigo 400 -->
-    <color name="purple_light">#7E57C2</color>   <!-- Deep Purple 400 -->
-    <color name="purple">#673AB7</color>         <!-- Deep Purple 500 (brand color) -->
+    <!-- Backgrounds (Light Mode Base) -->
+    <color name="bg_primary">#F3F4F6</color>     <!-- App background -->
+    <color name="bg_secondary">#FFFFFF</color>   <!-- Cards / surfaces -->
+    <color name="bg_third">#E5E7EB</color>      <!-- Elevated surfaces / inputs -->
 
-    <!-- Whites / Grays (Cool Gray for Tech UI) -->
-    <color name="white">#ECEFF4</color>          <!-- Soft cool white -->
-    <color name="grey">#AEB6C8</color>           <!-- Clean grey -->
-    <color name="grey_dark">#5C6373</color>      <!-- Muted grey for icons -->
+    <!-- Brand / Gradient Colors (same as dark) -->
+    <color name="purple_blue">#5C6BC0</color>
+    <color name="purple_light">#7E57C2</color>
+    <color name="purple">#673AB7</color>
 
-    <!-- Blues (Indigo Accent Set) -->
+    <!-- Text / Grays (for light) -->
+    <color name="white">#FFFFFF</color>         <!-- Real white now -->
+    <color name="grey">#6B7280</color>          <!-- Body text -->
+    <color name="grey_dark">#111827</color>     <!-- Strong title text -->
+
+    <!-- Blues (keep your brand accents) -->
     <color name="blue_bright">#2979FF</color>
-    <color name="blue_light">#536DFE</color>     <!-- Indigo A200 -->
-    <color name="blue">#3D5AFE</color>           <!-- Indigo A400 -->
-    <color name="blue_dark">#283593</color>      <!-- Indigo 800 -->
+    <color name="blue_light">#536DFE</color>
+    <color name="blue">#3D5AFE</color>
+    <color name="blue_dark">#1E3A8A</color>
 
-    <!-- Reds (Premium Alert Colors) -->
-    <color name="red_light">#FF5252</color>      <!-- Accent red -->
-    <color name="red">#FF1744</color>            <!-- Deep A400 red -->
-    <color name="red_dark">#B2102F</color>       <!-- Dark red -->
+    <!-- Reds -->
+    <color name="red_light">#EF4444</color>
+    <color name="red">#DC2626</color>
+    <color name="red_dark">#991B1B</color>
+
 </resources>
-

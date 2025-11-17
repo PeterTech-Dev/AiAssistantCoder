@@ -176,7 +176,7 @@ public class CodeEditorFragment extends Fragment {
     private String aiEntrypoint;
 
     // Live runner
-    private String liveBaseUrl = "http://10.0.2.2:8080";
+    private String liveBaseUrl = "https://pocketcoder-backend.onrender.com";
     private WebSocket liveSocket;
     private String liveSessionId;
     private boolean liveConnecting = false;
