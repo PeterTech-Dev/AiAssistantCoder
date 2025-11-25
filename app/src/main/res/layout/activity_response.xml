@@ -13,13 +13,16 @@
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize">
+            android:layout_height="?attr/actionBarSize"
+            android:titleTextColor="@color/colorOnBackground"
+            android:background="@color/colorBackground">
 
             <ImageButton
                 android:id="@+id/close_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:src="@drawable/ic_close"
+                app:tint="@color/colorOnBackground"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
         </androidx.appcompat.widget.Toolbar>
@@ -29,7 +32,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:tabMode="fixed"
-            app:tabGravity="fill"/>
+            app:tabGravity="fill"
+            android:background="@color/colorSurface"
+            app:tabTextColor="@color/colorOnSurface"
+            app:tabSelectedTextColor="@color/colorPrimary"
+            />
 
     </com.google.android.material.appbar.AppBarLayout>
 

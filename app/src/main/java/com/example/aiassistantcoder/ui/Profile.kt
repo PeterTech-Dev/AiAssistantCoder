@@ -1,5 +1,6 @@
 package com.example.aiassistantcoder.ui
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -715,7 +716,7 @@ fun NewPasswordContent(
     val purpleBlue  = colorResource(R.color.colorSecondaryVariant)
 
     val context = LocalContext.current
-    val activity = context as? android.app.Activity
+    val activity = context as? Activity   // <- safe cast
 
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -795,21 +796,30 @@ fun NewPasswordContent(
                             val np = newPassword.trim()
                             val cp = confirmPassword.trim()
 
+                            val root = activity?.findViewById<android.view.View>(android.R.id.content)
+
                             when {
+                                root == null -> {
+                                    // no activity / root, just bail out safely
+                                    return@Button
+                                }
+
                                 np.length < 6 -> {
-                                    Toast.makeText(
-                                        context,
-                                        "Password must be at least 6 characters",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    SnackBarApp.show(
+                                        root,
+                                        message = "Password must be at least 6 characters",
+                                        type = SnackBarApp.Type.WARNING
+                                    )
                                 }
+
                                 np != cp -> {
-                                    Toast.makeText(
-                                        context,
-                                        "Passwords do not match",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    SnackBarApp.show(
+                                        root,
+                                        message = "Passwords do not match",
+                                        type = SnackBarApp.Type.ERROR
+                                    )
                                 }
+
                                 else -> onUpdatePassword(np)
                             }
                         },
@@ -829,7 +839,6 @@ fun NewPasswordContent(
 
             Spacer(Modifier.height(16.dp))
 
-            // 👇 Cancel / back out
             Text(
                 text = "Cancel",
                 color = white,

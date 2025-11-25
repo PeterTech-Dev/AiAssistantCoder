@@ -1,11 +1,16 @@
 package com.example.aiassistantcoder.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,7 +70,12 @@ fun SettingsContent(
     onConsoleFontChange: (Int) -> Unit,
     onClearHistory: () -> Unit
 ) {
-    val greyDark    = colorResource(id = R.color.colorOutline)
+    // Colors
+    val buttonTrackOn = colorResource(id = R.color.colorPrimary)
+    val buttonTrackOff = Color(0xFF444444)
+    val buttonThumbOn = colorResource(id = R.color.colorOnPrimary)
+    val buttonThumbOff = Color.Black
+
     val blue        = colorResource(id = R.color.colorPrimary)
     val bgSecondary = colorResource(R.color.colorSurface)
     val bgThird     = colorResource(R.color.colorSurfaceVariant)
@@ -73,15 +83,40 @@ fun SettingsContent(
     val grey        = colorResource(R.color.colorOutline)
     val purple      = colorResource(R.color.colorSecondary)
 
+    // Local state mirrors
     var dark by remember { mutableStateOf(useDarkTheme) }
     var auto by remember { mutableStateOf(autoApply) }
     var showDiff by remember { mutableStateOf(showDiffPreview) }
     var editorIdx by remember { mutableIntStateOf(editorFontIndex) }
     var consoleIdx by remember { mutableIntStateOf(consoleFontIndex) }
 
+    // Confirmation dialog state
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+
+    val scrollState = rememberScrollState()
+
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 16.dp, vertical = 20.dp)
     ) {
+        // Screen header
+        Text(
+            text = "Settings",
+            color = white,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Customize your workspace, fonts, and AI behavior.",
+            color = grey.copy(alpha = 0.8f),
+            fontSize = 13.sp
+        )
+
+        Spacer(Modifier.height(20.dp))
+
         // -------- UI --------
         SettingsSectionCard(
             title = "UI",
@@ -90,17 +125,18 @@ fun SettingsContent(
             dividerColor = bgThird
         ) {
             SettingSwitchRow(
-                label = "Dark Mode",
+                label = "Dark mode",
+                subtitle = "Use a dark theme throughout the app.",
                 checked = dark,
                 onCheckedChange = {
                     dark = it
                     onDarkThemeChange(it)
                 },
                 textColor = white,
-                trackOn = blue,
-                trackOff = greyDark,
-                thumbOn = white,
-                thumbOff = bgThird
+                trackOn = buttonTrackOn,
+                trackOff = buttonTrackOff,
+                thumbOn = buttonThumbOn,
+                thumbOff = buttonThumbOff
             )
         }
 
@@ -108,39 +144,41 @@ fun SettingsContent(
 
         // -------- Code Editor --------
         SettingsSectionCard(
-            title = "Code Editor",
+            title = "Code editor",
             labelColor = grey,
             bgColor = bgSecondary,
             dividerColor = bgThird
         ) {
             SettingSwitchRow(
-                label = "Auto-apply AI code to editor",
+                label = "Auto-apply AI code",
+                subtitle = "Automatically insert AI suggestions into the editor.",
                 checked = auto,
                 onCheckedChange = {
                     auto = it
                     onAutoApplyChange(it)
                 },
                 textColor = white,
-                trackOn = blue,
-                trackOff = greyDark,
-                thumbOn = white,
-                thumbOff = bgThird
+                trackOn = buttonTrackOn,
+                trackOff = buttonTrackOff,
+                thumbOn = buttonThumbOn,
+                thumbOff = buttonThumbOff
             )
 
             DividerLine(color = bgThird)
 
             SettingSwitchRow(
                 label = "Show diff preview",
+                subtitle = "Preview changes before applying them to your code.",
                 checked = showDiff,
                 onCheckedChange = {
                     showDiff = it
                     onShowDiffChange(it)
                 },
                 textColor = white,
-                trackOn = blue,
-                trackOff = greyDark,
-                thumbOn = white,
-                thumbOff = bgThird
+                trackOn = buttonTrackOn,
+                trackOff = buttonTrackOff,
+                thumbOn = buttonThumbOn,
+                thumbOff = buttonThumbOff
             )
         }
 
@@ -188,10 +226,53 @@ fun SettingsContent(
 
         Spacer(Modifier.height(24.dp))
 
+        // Clear history (opens confirmation dialog)
         ClearHistoryButton(
-            textColor = white,
+            textColor = colorResource(id = R.color.colorOnPrimary),
             bgColor = purple,
-            onClick = onClearHistory
+            onClick = { showClearHistoryDialog = true }
+        )
+
+        Spacer(Modifier.height(12.dp))
+    }
+
+    // ---- Clear history confirmation dialog ----
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            title = {
+                Text(
+                    text = "Clear project history?",
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Text(
+                    text = "This will permanently remove your recent project history. " +
+                            "This action cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearHistoryDialog = false
+                        onClearHistory()
+                    }
+                ) {
+                    Text(
+                        text = "Clear",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(18.dp),
+            containerColor = bgSecondary
         )
     }
 }
@@ -201,9 +282,9 @@ fun SettingsContent(
 @Composable
 fun SettingsSectionCard(
     title: String,
-    labelColor: androidx.compose.ui.graphics.Color,
-    bgColor: androidx.compose.ui.graphics.Color,
-    dividerColor: androidx.compose.ui.graphics.Color,
+    labelColor: Color,
+    bgColor: Color,
+    dividerColor: Color,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -219,8 +300,8 @@ fun SettingsSectionCard(
         Surface(
             color = bgColor,
             shape = RoundedCornerShape(18.dp),
-            tonalElevation = 0.dp,
-            shadowElevation = 12.dp
+            tonalElevation = 2.dp,
+            shadowElevation = 8.dp
         ) {
             Column(
                 modifier = Modifier
@@ -236,13 +317,14 @@ fun SettingsSectionCard(
 @Composable
 fun SettingSwitchRow(
     label: String,
+    subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    textColor: androidx.compose.ui.graphics.Color,
-    trackOn: androidx.compose.ui.graphics.Color,
-    trackOff: androidx.compose.ui.graphics.Color,
-    thumbOn: androidx.compose.ui.graphics.Color,
-    thumbOff: androidx.compose.ui.graphics.Color
+    textColor: Color,
+    trackOn: Color,
+    trackOff: Color,
+    thumbOn: Color,
+    thumbOff: Color
 ) {
     Row(
         modifier = Modifier
@@ -250,12 +332,23 @@ fun SettingSwitchRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            color = textColor,
-            fontSize = 16.sp,
+        Column(
             modifier = Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                text = label,
+                color = textColor,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    color = textColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+        }
 
         Switch(
             checked = checked,
@@ -271,7 +364,7 @@ fun SettingSwitchRow(
 }
 
 @Composable
-fun DividerLine(color: androidx.compose.ui.graphics.Color) {
+fun DividerLine(color: Color) {
     Divider(
         modifier = Modifier
             .fillMaxWidth()
@@ -287,11 +380,11 @@ fun SettingDropdownRow(
     options: List<String>,
     selectedIndex: Int,
     onSelectedIndexChange: (Int) -> Unit,
-    labelColor: androidx.compose.ui.graphics.Color,
-    textColor: androidx.compose.ui.graphics.Color,
-    borderColor: androidx.compose.ui.graphics.Color,
-    focusedBorderColor: androidx.compose.ui.graphics.Color,
-    containerColor: androidx.compose.ui.graphics.Color
+    labelColor: Color,
+    textColor: Color,
+    borderColor: Color,
+    focusedBorderColor: Color,
+    containerColor: Color
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -314,7 +407,8 @@ fun SettingDropdownRow(
 
         ExposedDropdownMenuBox(
             expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
         ) {
             OutlinedTextField(
                 value = selectedText,
@@ -336,6 +430,7 @@ fun SettingDropdownRow(
                     focusedContainerColor = containerColor,
                     unfocusedContainerColor = containerColor
                 ),
+                shape = RoundedCornerShape(14.dp),
                 trailingIcon = {
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                 }
@@ -343,7 +438,8 @@ fun SettingDropdownRow(
 
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
+                containerColor = containerColor
             ) {
                 options.forEachIndexed { index, option ->
                     DropdownMenuItem(
@@ -351,7 +447,10 @@ fun SettingDropdownRow(
                         onClick = {
                             onSelectedIndexChange(index)
                             expanded = false
-                        }
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = textColor
+                        )
                     )
                 }
             }
@@ -361,8 +460,8 @@ fun SettingDropdownRow(
 
 @Composable
 fun ClearHistoryButton(
-    textColor: androidx.compose.ui.graphics.Color,
-    bgColor: androidx.compose.ui.graphics.Color,
+    textColor: Color,
+    bgColor: Color,
     onClick: () -> Unit
 ) {
     Button(
@@ -380,10 +479,20 @@ fun ClearHistoryButton(
             pressedElevation = 10.dp
         )
     ) {
-        Text(
-            text = "Clear Project History",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.DeleteSweep,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "Clear project history",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }

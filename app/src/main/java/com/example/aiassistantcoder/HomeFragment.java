@@ -25,6 +25,7 @@ import androidx.fragment.app.Fragment;
 
 import androidx.compose.ui.platform.ComposeView;
 
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.gson.Gson;
@@ -82,7 +83,12 @@ public class HomeFragment extends Fragment {
                         imagePreviewContainer.setVisibility(View.VISIBLE);
                     } catch (IOException e) {
                         Log.e(TAG, "Image load failed", e);
-                        Toast.makeText(getContext(), "Image load failed", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Image load failed",
+                                SnackBarApp.Type.ERROR
+                        );
+
                     }
                 }
             });
@@ -139,7 +145,11 @@ public class HomeFragment extends Fragment {
         Log.d(TAG, "submitToGemini: user text = " + userText + ", hasImage=" + (selectedImageBitmap != null));
 
         if (userText.isEmpty() && selectedImageBitmap == null) {
-            Toast.makeText(getContext(), "Please enter some text or select an image", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    requireActivity().findViewById(android.R.id.content),
+                    "Please enter some text or select an image",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
 
@@ -374,9 +384,11 @@ public class HomeFragment extends Fragment {
 
                                     @Override public void onError(Exception e) {
                                         Log.e(TAG, "submitToGemini: project save error", e);
-                                        Toast.makeText(getContext(),
-                                                "Error saving project: " + e.getMessage(),
-                                                Toast.LENGTH_SHORT).show();
+                                        SnackBarApp.INSTANCE.show(
+                                                requireActivity().findViewById(android.R.id.content),
+                                                "Error saving project: " +e.getMessage(),
+                                                SnackBarApp.Type.WARNING
+                                        );
                                     }
                                 });
                     } else {
@@ -414,7 +426,12 @@ public class HomeFragment extends Fragment {
         if (getActivity() == null) return;
         getActivity().runOnUiThread(() -> {
             loadingIndicator.setVisibility(View.GONE);
-            Toast.makeText(getContext(), "Error: " + msg, Toast.LENGTH_LONG).show();
+            SnackBarApp.INSTANCE.show(
+                    requireActivity().findViewById(android.R.id.content),
+                    "Error: " + msg,
+                    SnackBarApp.Type.ERROR
+            );
+
         });
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.ComposeView;
 import androidx.fragment.app.Fragment;
 
 import com.example.aiassistantcoder.ui.ProfileKt;
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
@@ -77,37 +78,70 @@ public class ProfileRegisterFragment extends Fragment {
         final String p     = password == null ? "" : password.trim();
         final String cp    = confirmPassword == null ? "" : confirmPassword.trim();
 
+        View root = requireActivity().findViewById(android.R.id.content);
+
         if (fName.isEmpty() || lName.isEmpty()) {
-            Toast.makeText(getContext(), "Name and surname required", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Name and surname required",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
+
         if (e.isEmpty() || ce.isEmpty()) {
-            Toast.makeText(getContext(), "Email required", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Email required",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
+
         if (!e.equals(ce)) {
-            Toast.makeText(getContext(), "Emails do not match", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Emails do not match",
+                    SnackBarApp.Type.ERROR
+            );
             return;
         }
+
         if (p.isEmpty() || cp.isEmpty()) {
-            Toast.makeText(getContext(), "Password required", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Password required",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
+
         if (!p.equals(cp)) {
-            Toast.makeText(getContext(), "Passwords do not match", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Passwords do not match",
+                    SnackBarApp.Type.ERROR
+            );
             return;
         }
+
         if (p.length() < 6) {
-            Toast.makeText(getContext(), "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Password must be at least 6 characters",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
 
         mAuth.createUserWithEmailAndPassword(e, p)
                 .addOnCompleteListener(task -> {
                     if (!task.isSuccessful()) {
-                        Toast.makeText(getContext(),
-                                "Registration failed: " + task.getException().getMessage(),
-                                Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Registration failed",
+                                SnackBarApp.Type.ERROR
+                        );
                         return;
                     }
 
@@ -124,9 +158,12 @@ public class ProfileRegisterFragment extends Fragment {
                     user.sendEmailVerification()
                             .addOnCompleteListener(v -> {
                                 if (v.isSuccessful()) {
-                                    Toast.makeText(getContext(),
+                                    SnackBarApp.INSTANCE.show(
+                                            requireActivity().findViewById(android.R.id.content),
                                             "Verification email sent to " + e,
-                                            Toast.LENGTH_LONG).show();
+                                            SnackBarApp.Type.SUCCESS
+                                    );
+
                                 }
                             });
 

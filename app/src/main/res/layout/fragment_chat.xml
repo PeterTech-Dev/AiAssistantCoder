@@ -65,7 +65,7 @@
             android:layout_weight="1"
             android:background="@null"
             android:hint="Continue the conversation..."
-            android:textColor="@color/colorOnPrimary"
+            android:textColor="@color/colorOnBackground"
             android:textColorHint="@color/colorHint"/>
 
         <ImageButton

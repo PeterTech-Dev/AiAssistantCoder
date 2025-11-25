@@ -40,9 +40,10 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
+                    android:background="@color/colorSurfaceVariant"
                     app:tabMode="scrollable"
-                    app:tabIndicatorColor="@color/colorSurface"
-                    app:tabSelectedTextColor="@color/colorSurface"
+                    app:tabIndicatorColor="@color/colorPrimary"
+                    app:tabSelectedTextColor="@color/colorPrimary"
                     app:tabTextColor="@color/colorOnBackground"
                     app:tabIndicatorHeight="2dp" />
 

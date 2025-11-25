@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Focused: a bit stronger -->
+    <item
+        android:state_focused="true"
+        android:color="@color/colorOnSurface" />
+
+    <!-- Default / unfocused: softer -->
+    <item
+        android:color="@color/colorHint" />
+</selector>

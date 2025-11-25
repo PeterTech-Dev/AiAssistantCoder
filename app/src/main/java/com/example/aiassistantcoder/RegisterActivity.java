@@ -1,6 +1,7 @@
 package com.example.aiassistantcoder;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -8,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.compose.ui.platform.ComposeView;
 
 import com.example.aiassistantcoder.ui.ProfileKt;
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
@@ -61,6 +63,8 @@ public class RegisterActivity extends AppCompatActivity {
             String password,
             String confirmPassword
     ) {
+        View root = findViewById(android.R.id.content);  // Snackbar root
+
         final String fName = firstName == null ? "" : firstName.trim();
         final String lName = lastName == null ? "" : lastName.trim();
         final String e     = email == null ? "" : email.trim();
@@ -68,37 +72,46 @@ public class RegisterActivity extends AppCompatActivity {
         final String p     = password == null ? "" : password.trim();
         final String cp    = confirmPassword == null ? "" : confirmPassword.trim();
 
+        // --- validation ---
         if (fName.isEmpty() || lName.isEmpty()) {
-            Toast.makeText(this, "Name and surname required", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (e.isEmpty() || ce.isEmpty()) {
-            Toast.makeText(this, "Email required", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (!e.equals(ce)) {
-            Toast.makeText(this, "Emails do not match", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (p.isEmpty() || cp.isEmpty()) {
-            Toast.makeText(this, "Password required", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (!p.equals(cp)) {
-            Toast.makeText(this, "Passwords do not match", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (p.length() < 6) {
-            Toast.makeText(this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(root, "Name and surname required", SnackBarApp.Type.WARNING);
             return;
         }
 
+        if (e.isEmpty() || ce.isEmpty()) {
+            SnackBarApp.INSTANCE.show(root, "Email required", SnackBarApp.Type.WARNING);
+            return;
+        }
+
+        if (!e.equals(ce)) {
+            SnackBarApp.INSTANCE.show(root, "Emails do not match", SnackBarApp.Type.ERROR);
+            return;
+        }
+
+        if (p.isEmpty() || cp.isEmpty()) {
+            SnackBarApp.INSTANCE.show(root, "Password required", SnackBarApp.Type.WARNING);
+            return;
+        }
+
+        if (!p.equals(cp)) {
+            SnackBarApp.INSTANCE.show(root, "Passwords do not match", SnackBarApp.Type.ERROR);
+            return;
+        }
+
+        if (p.length() < 6) {
+            SnackBarApp.INSTANCE.show(root, "Password must be at least 6 characters", SnackBarApp.Type.WARNING);
+            return;
+        }
+
+        // --- register user ---
         mAuth.createUserWithEmailAndPassword(e, p)
                 .addOnCompleteListener(task -> {
                     if (!task.isSuccessful()) {
-                        Toast.makeText(this,
+                        SnackBarApp.INSTANCE.show(
+                                root,
                                 "Registration failed: " + task.getException().getMessage(),
-                                Toast.LENGTH_SHORT).show();
+                                SnackBarApp.Type.ERROR
+                        );
                         return;
                     }
 
@@ -116,13 +129,14 @@ public class RegisterActivity extends AppCompatActivity {
                     user.sendEmailVerification()
                             .addOnCompleteListener(v -> {
                                 if (v.isSuccessful()) {
-                                    Toast.makeText(this,
+                                    SnackBarApp.INSTANCE.show(
+                                            root,
                                             "Verification email sent to " + e,
-                                            Toast.LENGTH_LONG).show();
+                                            SnackBarApp.Type.INFO
+                                    );
                                 }
                             });
 
-                    // after successful registration, go back to sign-in/profile
                     finish();
                 });
     }

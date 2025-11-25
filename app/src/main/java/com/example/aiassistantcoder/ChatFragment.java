@@ -26,6 +26,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -98,7 +99,11 @@ public class ChatFragment extends Fragment {
                         imagePreviewContainer.setVisibility(View.VISIBLE);
                     } catch (IOException e) {
                         e.printStackTrace();
-                        Toast.makeText(getContext(), "Error loading image", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Error loading image",
+                                SnackBarApp.Type.ERROR
+                        );
                     }
                 }
             });
@@ -124,7 +129,11 @@ public class ChatFragment extends Fragment {
         ImageButton removeImageButton = view.findViewById(R.id.remove_image_button);
 
         if (currentProject == null) {
-            Toast.makeText(getContext(), "Project not found", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    requireActivity().findViewById(android.R.id.content),
+                    "Project not found",
+                    SnackBarApp.Type.ERROR
+            );
             requireActivity().finish();
             return view;
         }
@@ -404,7 +413,12 @@ public class ChatFragment extends Fragment {
                 requireActivity().runOnUiThread(() -> {
                     loadingIndicator.setVisibility(View.GONE);
                     chatInput.setEnabled(true);
-                    Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
+                            "Error: " + e.getMessage(),
+                            SnackBarApp.Type.ERROR
+                    );
+
                 });
             }
         });

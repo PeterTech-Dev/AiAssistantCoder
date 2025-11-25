@@ -17,12 +17,112 @@
         android:layout_weight="1"
         android:padding="8dp">
 
+        <!-- RUN INFO pills + files (for pretty-for-chat answers) -->
+        <LinearLayout
+            android:id="@+id/run_info_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/run_info_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="RUN INFO"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:textSize="18sp"
+                android:textColor="@color/colorOnPrimary"
+                android:layout_marginBottom="4dp" />
+
+            <!-- pills row -->
+            <LinearLayout
+                android:id="@+id/run_info_pills"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="4dp">
+
+                <TextView
+                    android:id="@+id/pill_language"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:textSize="11sp"
+                    android:textColor="@color/colorOnPrimary"
+                    android:background="@drawable/bg_chip"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/pill_runtime"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:textSize="11sp"
+                    android:textColor="@color/colorOnPrimary"
+                    android:background="@drawable/bg_chip"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/pill_entrypoint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:textSize="11sp"
+                    android:textColor="@color/colorOnPrimary"
+                    android:background="@drawable/bg_chip"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginEnd="6dp" />
+            </LinearLayout>
+
+            <!-- files list -->
+            <LinearLayout
+                android:id="@+id/run_info_files_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/run_info_files_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Files"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:textColor="@color/colorOnPrimary"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/run_info_files_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- Normal text path (for non-JSON answers) -->
         <TextView
             android:id="@+id/message_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/colorOnSurface"
+            android:layout_below="@id/run_info_container"
+            android:textColor="@color/colorOnPrimary"
             android:textSize="14sp"
             android:lineSpacingExtra="2dp"
             android:autoLink="web" />
@@ -65,7 +165,7 @@
                     android:textSize="12sp"
                     android:textColor="#0EA5E9"
                     android:background="@drawable/bg_chip"
-                    android:layout_marginEnd="6dp"/>
+                    android:layout_marginEnd="6dp" />
 
                 <TextView
                     android:id="@+id/badge_runtime"
@@ -78,7 +178,7 @@
                     android:text="Runtime: 3"
                     android:textSize="12sp"
                     android:textColor="#22C55E"
-                    android:background="@drawable/bg_chip"/>
+                    android:background="@drawable/bg_chip" />
             </LinearLayout>
 
             <!-- notes / summary -->
@@ -89,7 +189,7 @@
                 android:text="A short summary appears here."
                 android:textSize="13sp"
                 android:textColor="#222222"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp" />
 
             <!-- code block (collapsible) -->
             <RelativeLayout
@@ -125,7 +225,7 @@
                     android:layout_alignBottom="@id/parsed_code_view"
                     android:layout_alignParentBottom="true"
                     android:background="@drawable/bg_code_fade"
-                    android:visibility="gone"/>
+                    android:visibility="gone" />
 
                 <!-- actions -->
                 <LinearLayout

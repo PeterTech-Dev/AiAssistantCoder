@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.ComposeView;
 import androidx.fragment.app.Fragment;
 
 import com.example.aiassistantcoder.ui.ProfileKt;
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -63,9 +64,12 @@ public class ProfileFragment extends Fragment {
 
                 @Override
                 public void onVerificationFailed(@NonNull FirebaseException e) {
-                    Toast.makeText(getContext(),
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
                             "Verification failed: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
+                            SnackBarApp.Type.ERROR
+                    );
+
                 }
 
                 @Override
@@ -73,14 +77,24 @@ public class ProfileFragment extends Fragment {
                                        @NonNull PhoneAuthProvider.ForceResendingToken token) {
                     phoneVerificationId = verificationId;
                     phoneResendToken = token;
-                    Toast.makeText(getContext(), "Code sent", Toast.LENGTH_SHORT).show();
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
+                            "Code sent",
+                            SnackBarApp.Type.SUCCESS
+                    );
+
                 }
             };
 
     private final ActivityResultLauncher<Intent> googleSignInLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getData() == null) {
-                    Toast.makeText(getContext(), "Google sign-in cancelled", Toast.LENGTH_SHORT).show();
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
+                            "Google sign-in cancelled",
+                            SnackBarApp.Type.ERROR
+                    );
+
                     return;
                 }
                 Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
@@ -88,7 +102,12 @@ public class ProfileFragment extends Fragment {
                     GoogleSignInAccount account = task.getResult(ApiException.class);
                     if (account != null) firebaseAuthWithGoogle(account.getIdToken());
                 } catch (ApiException e) {
-                    Toast.makeText(getContext(), "Google sign in failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
+                            "Google sign-in failed",
+                            SnackBarApp.Type.ERROR
+                    );
+
                 }
             });
 
@@ -121,13 +140,23 @@ public class ProfileFragment extends Fragment {
                         email = email.trim();
                         password = password.trim();
                         if (email.isEmpty() || password.isEmpty()) {
-                            Toast.makeText(getContext(), "Email and password required", Toast.LENGTH_SHORT).show();
+                            SnackBarApp.INSTANCE.show(
+                                    requireActivity().findViewById(android.R.id.content),
+                                    "Email and Password required",
+                                    SnackBarApp.Type.WARNING
+                            );
+
                             return Unit.INSTANCE;
                         }
                         mAuth.signInWithEmailAndPassword(email, password)
                                 .addOnCompleteListener(task -> {
                                     if (!task.isSuccessful()) {
-                                        Toast.makeText(getContext(), "Authentication failed.", Toast.LENGTH_SHORT).show();
+                                        SnackBarApp.INSTANCE.show(
+                                                requireActivity().findViewById(android.R.id.content),
+                                                "Authentication failed",
+                                                SnackBarApp.Type.ERROR
+                                        );
+
                                     }
                                     // authListener will update UI
                                 });
@@ -169,15 +198,27 @@ public class ProfileFragment extends Fragment {
                     public Unit invoke(String email) {
                         email = email.trim();
                         if (email.isEmpty()) {
-                            Toast.makeText(getContext(), "Enter your email first", Toast.LENGTH_SHORT).show();
+                            SnackBarApp.INSTANCE.show(
+                                    requireActivity().findViewById(android.R.id.content),
+                                    "Enter your email first",
+                                    SnackBarApp.Type.WARNING
+                            );
                             return Unit.INSTANCE;
                         }
                         mAuth.sendPasswordResetEmail(email)
                                 .addOnCompleteListener(task -> {
                                     if (task.isSuccessful()) {
-                                        Toast.makeText(getContext(), "Reset link sent", Toast.LENGTH_SHORT).show();
+                                        SnackBarApp.INSTANCE.show(
+                                                requireActivity().findViewById(android.R.id.content),
+                                                "Reset link sent",
+                                                SnackBarApp.Type.SUCCESS
+                                        );
                                     } else {
-                                        Toast.makeText(getContext(), "Failed to send reset email", Toast.LENGTH_SHORT).show();
+                                        SnackBarApp.INSTANCE.show(
+                                                requireActivity().findViewById(android.R.id.content),
+                                                "Failed to send reset link",
+                                                SnackBarApp.Type.ERROR
+                                        );
                                     }
                                 });
                         return Unit.INSTANCE;
@@ -206,7 +247,11 @@ public class ProfileFragment extends Fragment {
 
     private void sendPhoneVerificationCode(String phone) {
         if (phone.isEmpty()) {
-            Toast.makeText(getContext(), "Enter phone number", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    requireActivity().findViewById(android.R.id.content),
+                    "Enter phone number",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
 
@@ -223,7 +268,11 @@ public class ProfileFragment extends Fragment {
 
     private void verifyPhoneCode(String code) {
         if (phoneVerificationId == null || code.isEmpty()) {
-            Toast.makeText(getContext(), "Request a code first", Toast.LENGTH_SHORT).show();
+            SnackBarApp.INSTANCE.show(
+                    requireActivity().findViewById(android.R.id.content),
+                    "Request a code first",
+                    SnackBarApp.Type.WARNING
+            );
             return;
         }
         PhoneAuthCredential credential =
@@ -235,9 +284,17 @@ public class ProfileFragment extends Fragment {
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(requireActivity(), task -> {
                     if (task.isSuccessful()) {
-                        Toast.makeText(getContext(), "Signed in with phone", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Signed in with phone",
+                                SnackBarApp.Type.SUCCESS
+                        );
                     } else {
-                        Toast.makeText(getContext(), "Phone sign-in failed", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Phone sign-in failed",
+                                SnackBarApp.Type.ERROR
+                        );
                     }
                 });
     }
@@ -269,7 +326,11 @@ public class ProfileFragment extends Fragment {
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(requireActivity(), task -> {
                     if (!task.isSuccessful()) {
-                        Toast.makeText(getContext(), "Google auth failed", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Google auth failed",
+                                SnackBarApp.Type.ERROR
+                        );
                     }
                 });
     }
@@ -307,7 +368,11 @@ public class ProfileFragment extends Fragment {
                                                 .build();
                                 u.updateProfile(req).addOnCompleteListener(t -> {
                                     if (t.isSuccessful()) {
-                                        Toast.makeText(getContext(), "Display name updated.", Toast.LENGTH_SHORT).show();
+                                        SnackBarApp.INSTANCE.show(
+                                                requireActivity().findViewById(android.R.id.content),
+                                                "Display name updated",
+                                                SnackBarApp.Type.SUCCESS
+                                        );
                                     }
                                 });
                             }

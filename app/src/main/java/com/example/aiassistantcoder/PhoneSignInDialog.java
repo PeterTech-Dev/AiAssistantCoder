@@ -19,6 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.firebase.FirebaseException;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.PhoneAuthCredential;
@@ -78,14 +79,23 @@ public class PhoneSignInDialog extends DialogFragment {
                 String e164 = ccp.getFullNumberWithPlus();
                 sendVerificationCode(e164, /*useResendToken*/ false);
             } else {
-                Toast.makeText(getContext(), "Enter a valid phone number", Toast.LENGTH_SHORT).show();
+                SnackBarApp.INSTANCE.show(
+                        requireActivity().findViewById(android.R.id.content),
+                        "Enter a valid phone number",
+                        SnackBarApp.Type.WARNING
+                );
             }
         });
 
         // Resend OTP
         resendBtn.setOnClickListener(view -> {
             if (!ccp.isValidFullNumber()) {
-                Toast.makeText(getContext(), "Enter a valid phone number", Toast.LENGTH_SHORT).show();
+                SnackBarApp.INSTANCE.show(
+                        requireActivity().findViewById(android.R.id.content),
+                        "Enter a valid phone number",
+                        SnackBarApp.Type.WARNING
+                );
+
                 return;
             }
             String e164 = ccp.getFullNumberWithPlus();
@@ -99,7 +109,12 @@ public class PhoneSignInDialog extends DialogFragment {
                 PhoneAuthCredential cred = PhoneAuthProvider.getCredential(verificationId, code);
                 signInWithPhoneCredential(cred);
             } else {
-                Toast.makeText(getContext(), "Enter the code", Toast.LENGTH_SHORT).show();
+                SnackBarApp.INSTANCE.show(
+                        requireActivity().findViewById(android.R.id.content),
+                        "Enter the code",
+                        SnackBarApp.Type.INFO
+                );
+
             }
         });
 
@@ -161,9 +176,12 @@ public class PhoneSignInDialog extends DialogFragment {
 
                 @Override
                 public void onVerificationFailed(@NonNull FirebaseException e) {
-                    Toast.makeText(getContext(),
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
                             "Verification failed: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
+                            SnackBarApp.Type.WARNING
+                    );
+
 
                     sendCodeBtn.setEnabled(true);
                     resendBtn.setEnabled(false);
@@ -176,7 +194,12 @@ public class PhoneSignInDialog extends DialogFragment {
                                        @NonNull PhoneAuthProvider.ForceResendingToken token) {
                     verificationId = s;
                     resendToken = token;
-                    Toast.makeText(getContext(), "OTP sent", Toast.LENGTH_SHORT).show();
+                    SnackBarApp.INSTANCE.show(
+                            requireActivity().findViewById(android.R.id.content),
+                            "OTP sent",
+                            SnackBarApp.Type.SUCCESS
+                    );
+
 
                     sendCodeBtn.setEnabled(true);
                     startResendCooldown(30); // 30 seconds
@@ -222,10 +245,19 @@ public class PhoneSignInDialog extends DialogFragment {
                 .addOnCompleteListener(requireActivity(), task -> {
                     verifyBtn.setEnabled(true);
                     if (task.isSuccessful()) {
-                        Toast.makeText(getContext(), "Signed in with phone", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Signed in with phone",
+                                SnackBarApp.Type.SUCCESS
+                        );
                         dismiss();
                     } else {
-                        Toast.makeText(getContext(), "Phone sign-in failed", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Phone sign-in failed",
+                                SnackBarApp.Type.ERROR
+                        );
+
                     }
                 });
     }

@@ -27,18 +27,19 @@
 
     <!-- TextInputLayout (the container) -->
     <style name="App.TextInput" parent="Widget.Material3.TextInputLayout.OutlinedBox">
-        <item name="boxBackgroundColor">@color/colorSurfaceVariant</item>
-        <item name="boxStrokeColor">@color/colorSecondaryVariant</item>
+        <item name="boxBackgroundColor">@color/colorSurface</item>
+        <item name="boxStrokeColor">@color/text_input_stroke</item>
+        <item name="hintTextColor">@color/text_input_hint</item>
+        <item name="hintEnabled">true</item>
         <item name="boxStrokeWidth">1dp</item>
-        <item name="hintTextColor">@color/colorHint</item>
-        <item name="shapeAppearance">@style/App.Shape.MD</item>
+        <item name="boxStrokeWidthFocused">1dp</item>
     </style>
 
-    <!-- TextInputEditText (the field inside) -->
     <style name="App.TextInput.EditText" parent="Widget.Material3.TextInputEditText.OutlinedBox">
-        <item name="android:textColor">@color/colorOnPrimary</item>
-        <item name="android:textColorHint">@color/colorHint</item>
+        <item name="android:textColor">@color/colorOnSurface</item>
+        <item name="hintTextColor">@color/text_input_hint</item>
     </style>
+
 
     <!-- Bottom nav -->
     <style name="App.BottomNav" parent="Widget.Material3.BottomNavigationView">

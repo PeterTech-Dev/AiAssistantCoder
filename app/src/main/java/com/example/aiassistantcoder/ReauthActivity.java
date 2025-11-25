@@ -1,12 +1,14 @@
 package com.example.aiassistantcoder;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.compose.ui.platform.ComposeView;
 
 import com.example.aiassistantcoder.ui.ProfileKt;
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
@@ -34,44 +36,52 @@ public class ReauthActivity extends AppCompatActivity {
     /** Step 1: ask user for their current password and re-authenticate them. */
     private void showReauthStep() {
         ProfileKt.bindReauthPasswordContent(
-                composeView,
-                new Function1<String, Unit>() {
-                    @Override
-                    public Unit invoke(String password) {
-                        String pwd = password == null ? "" : password.trim();
-                        if (pwd.isEmpty()) {
-                            Toast.makeText(ReauthActivity.this,
-                                    "Please enter your password",
-                                    Toast.LENGTH_SHORT).show();
-                            return Unit.INSTANCE;
-                        }
+            composeView,
+            new Function1<String, Unit>() {
+                @Override
+                public Unit invoke(String password) {
 
-                        FirebaseUser user = mAuth.getCurrentUser();
-                        if (user == null || user.getEmail() == null) {
-                            Toast.makeText(ReauthActivity.this,
-                                    "No logged-in user.",
-                                    Toast.LENGTH_SHORT).show();
-                            return Unit.INSTANCE;
-                        }
+                    View root = findViewById(android.R.id.content);   // reuse for all snackbars
 
-                        AuthCredential credential =
-                                EmailAuthProvider.getCredential(user.getEmail(), pwd);
-
-                        user.reauthenticate(credential)
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        // Go to step 2 (new password screen)
-                                        showNewPasswordStep();
-                                    } else {
-                                        Toast.makeText(ReauthActivity.this,
-                                                "Re-authentication failed.",
-                                                Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-
+                    String pwd = password == null ? "" : password.trim();
+                    if (pwd.isEmpty()) {
+                        SnackBarApp.INSTANCE.show(
+                                root,
+                                "Please enter your password",
+                                SnackBarApp.Type.WARNING
+                        );
                         return Unit.INSTANCE;
                     }
+
+                    FirebaseUser user = mAuth.getCurrentUser();
+                    if (user == null || user.getEmail() == null) {
+                        SnackBarApp.INSTANCE.show(
+                                root,
+                                "No logged-in user.",
+                                SnackBarApp.Type.ERROR
+                        );
+                        return Unit.INSTANCE;
+                    }
+
+                    AuthCredential credential =
+                            EmailAuthProvider.getCredential(user.getEmail(), pwd);
+
+                    user.reauthenticate(credential)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    // Go to step 2 (new password screen)
+                                    showNewPasswordStep();
+                                } else {
+                                    SnackBarApp.INSTANCE.show(
+                                            root,
+                                            "Re-authentication failed.",
+                                            SnackBarApp.Type.ERROR
+                                    );
+                                }
+                            });
+                    return Unit.INSTANCE;
                 }
+            }
         );
     }
 
@@ -82,28 +92,41 @@ public class ReauthActivity extends AppCompatActivity {
                 new Function1<String, Unit>() {
                     @Override
                     public Unit invoke(String newPassword) {
+
+                        View root = findViewById(android.R.id.content);   // use once
+
                         String np = newPassword == null ? "" : newPassword.trim();
 
                         FirebaseUser user = mAuth.getCurrentUser();
                         if (user == null) {
-                            Toast.makeText(ReauthActivity.this,
+                            SnackBarApp.INSTANCE.show(
+                                    root,
                                     "No logged-in user.",
-                                    Toast.LENGTH_SHORT).show();
+                                    SnackBarApp.Type.ERROR
+                            );
                             return Unit.INSTANCE;
                         }
 
                         user.updatePassword(np)
                                 .addOnCompleteListener(task -> {
                                     if (task.isSuccessful()) {
-                                        Toast.makeText(ReauthActivity.this,
+
+                                        SnackBarApp.INSTANCE.show(
+                                                root,
                                                 "Password updated. Please log in again.",
-                                                Toast.LENGTH_LONG).show();
+                                                SnackBarApp.Type.SUCCESS
+                                        );
+
                                         mAuth.signOut();
                                         finish();
+
                                     } else {
-                                        Toast.makeText(ReauthActivity.this,
+
+                                        SnackBarApp.INSTANCE.show(
+                                                root,
                                                 "Failed to update password.",
-                                                Toast.LENGTH_SHORT).show();
+                                                SnackBarApp.Type.ERROR
+                                        );
                                     }
                                 });
 

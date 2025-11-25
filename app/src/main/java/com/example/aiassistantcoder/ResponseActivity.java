@@ -2,6 +2,7 @@ package com.example.aiassistantcoder;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
@@ -12,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.google.firebase.auth.FirebaseAuth;
@@ -42,6 +44,7 @@ public class ResponseActivity extends AppCompatActivity implements CodeEditorFra
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        toolbar.setTitleTextColor(getColor(R.color.colorOnBackground));
 
         ImageButton closeButton = findViewById(R.id.close_button);
         closeButton.setOnClickListener(v -> {
@@ -82,7 +85,12 @@ public class ResponseActivity extends AppCompatActivity implements CodeEditorFra
 
         if (currentProject == null) {
             Log.e(TAG, "currentProject is null, finishing");
-            Toast.makeText(this, "Project not found", Toast.LENGTH_SHORT).show();
+            View root = findViewById(android.R.id.content);
+            SnackBarApp.INSTANCE.show(
+                    root,
+                    "Project not found",
+                    SnackBarApp.Type.ERROR
+            );
             finish();
             return;
         }

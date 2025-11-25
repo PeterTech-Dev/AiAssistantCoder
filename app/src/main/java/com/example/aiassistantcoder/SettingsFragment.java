@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.ComposeView;
 import androidx.fragment.app.Fragment;
 
 import com.example.aiassistantcoder.ui.SettingsKt;
+import com.example.aiassistantcoder.ui.SnackBarApp;
 
 import java.util.Arrays;
 import java.util.List;
@@ -129,7 +130,14 @@ public class SettingsFragment extends Fragment {
                                 .attach(projectsFragment)
                                 .commit();
                     }
-                    Toast.makeText(ctx, "Project history cleared", Toast.LENGTH_SHORT).show();
+                    View root = requireActivity().findViewById(android.R.id.content);
+
+                    SnackBarApp.INSTANCE.show(
+                            root,
+                            "Project history cleared",
+                            SnackBarApp.Type.SUCCESS
+                    );
+
                     return Unit.INSTANCE;
                 }
         );

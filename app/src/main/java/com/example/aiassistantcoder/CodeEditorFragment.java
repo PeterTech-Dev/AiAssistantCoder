@@ -1,5 +1,7 @@
 package com.example.aiassistantcoder;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -18,12 +20,14 @@ import android.widget.ImageButton;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -75,6 +79,8 @@ public class CodeEditorFragment extends Fragment {
     private CodeEditor codeEditor;
     private FloatingActionButton btnRun;
     private ProgressBar progress;
+    private boolean editorDarkTheme = true;
+
 
     // 2-finger swipe / UI
     private float twoFingerStartX = 0f;
@@ -1319,6 +1325,8 @@ public class CodeEditorFragment extends Fragment {
     }
 
     private void renderFilesList(@NonNull LinearLayout container) {
+        int textColor = ContextCompat.getColor(getContext(), R.color.colorOnSurface);
+        int iconColor = ContextCompat.getColor(getContext(), R.color.colorOnSurface);
         container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(container.getContext());
 
@@ -1333,7 +1341,7 @@ public class CodeEditorFragment extends Fragment {
 
             TextView name = new TextView(container.getContext());
             name.setText(file.name);
-            name.setTextColor(0xFFFFFFFF);
+            name.setTextColor(textColor);
             name.setLayoutParams(new LinearLayout.LayoutParams(
                     0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1343,7 +1351,7 @@ public class CodeEditorFragment extends Fragment {
             ImageButton trash = new ImageButton(container.getContext());
             trash.setImageResource(android.R.drawable.ic_menu_delete);
             trash.setBackgroundColor(0x00000000);
-            trash.setColorFilter(0xFFFFFFFF);
+            trash.setColorFilter(iconColor);
             int p = (int) (8 * getResources().getDisplayMetrics().density);
             trash.setPadding(p, p, p, p);
 
@@ -1437,6 +1445,12 @@ public class CodeEditorFragment extends Fragment {
         }
     }
 
+    public void toggleEditorTheme() {
+        editorDarkTheme = !editorDarkTheme;
+        String themeName = editorDarkTheme ? "dark" : "light";
+        applyTextMateTheme(themeName);
+    }
+
     // ---------- TextMate init + apply from AI ----------
     private void initTextMateIfNeeded() {
         try {
@@ -1446,8 +1460,39 @@ public class CodeEditorFragment extends Fragment {
 
             GrammarRegistry.getInstance().loadGrammars("tm/languages.json");
 
+            SharedPreferences prefs =
+                    requireContext().getSharedPreferences("prefs", Context.MODE_PRIVATE);
+            boolean dark = prefs.getBoolean("dark_theme", false);
+
+            String themeName = dark ? "dark" : "light";
+            String themePath = "themes/" + themeName + ".json";
+
             ThemeRegistry themeRegistry = ThemeRegistry.getInstance();
-            String themeName = "dark";
+
+            ThemeModel model = new ThemeModel(
+                    IThemeSource.fromInputStream(
+                            FileProviderRegistry.getInstance().tryGetInputStream(themePath),
+                            themePath,
+                            null
+                    ),
+                    themeName
+            );
+
+            themeRegistry.loadTheme(model);
+            themeRegistry.setTheme(themeName);
+
+            codeEditor.setColorScheme(TextMateColorScheme.create(themeRegistry));
+            codeEditor.setEditorLanguage(TextMateLanguage.create("source.python", true));
+
+        } catch (Throwable t) {
+            t.printStackTrace();
+            printToConsole("TextMate init failed: " + t.getMessage() + "\n");
+        }
+    }
+
+    private void applyTextMateTheme(@NonNull String themeName) {
+        try {
+            ThemeRegistry themeRegistry = ThemeRegistry.getInstance();
             String themePath = "themes/" + themeName + ".json";
 
             ThemeModel model = new ThemeModel(
@@ -1458,15 +1503,16 @@ public class CodeEditorFragment extends Fragment {
                     ),
                     themeName
             );
+
             themeRegistry.loadTheme(model);
             themeRegistry.setTheme(themeName);
 
-            codeEditor.setColorScheme(TextMateColorScheme.create(themeRegistry));
-            codeEditor.setEditorLanguage(TextMateLanguage.create("source.python", true));
-
+            if (codeEditor != null) {
+                codeEditor.setColorScheme(TextMateColorScheme.create(themeRegistry));
+            }
         } catch (Throwable t) {
             t.printStackTrace();
-            printToConsole("TextMate init failed: " + t.getMessage() + "\n");
+            printToConsole("Theme apply failed: " + t.getMessage() + "\n");
         }
     }
 
@@ -1603,10 +1649,11 @@ public class CodeEditorFragment extends Fragment {
 
                     if (alreadyHasFile(name)) {
                         printToConsole("File \"" + name + "\" already exists.\n");
-                        Toast.makeText(requireContext(),
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
                                 "A file with that name already exists",
-                                Toast.LENGTH_SHORT).show();
-                        return;
+                                SnackBarApp.Type.ERROR
+                        );
                     }
 
                     OpenFile of = new OpenFile(name, name, "");

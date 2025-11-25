@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AiAssistantCoder</string>
+    <string name="app_name">Pocker Coder</string>
     <string name="copy">Copy</string>
     <string name="copy_code">Copy code</string>
     <string name="expand">Expand</string>

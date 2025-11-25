@@ -4,24 +4,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <!-- Static header text stays in XML -->
-    <TextView
-        android:id="@+id/settings_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Settings"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="@color/colorOnBackground"
-        android:layout_marginBottom="24dp" />
-
-    <!-- Compose draws all the settings UI -->
+    <!-- Compose draws ALL the UI now -->
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/settings_compose"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
 
 </LinearLayout>

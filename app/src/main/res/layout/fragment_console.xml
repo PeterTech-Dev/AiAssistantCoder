@@ -32,7 +32,7 @@
             android:padding="8dp"
             android:fontFamily="monospace"
             android:textSize="13sp"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="@color/colorOnBackground" />
     </ScrollView>
 
     <!-- Input row -->
@@ -55,7 +55,10 @@
             android:singleLine="true"
             android:imeOptions="actionSend"
             android:inputType="textVisiblePassword|textNoSuggestions"
-            android:fontFamily="monospace"/>
+            android:fontFamily="monospace"
+            android:textColor="@color/colorOnBackground"
+            android:textColorHint="@color/colorOutline"
+            android:backgroundTint="@color/colorSecondary" />
 
         <ImageButton
             android:id="@+id/btn_send"
@@ -64,7 +67,8 @@
             android:contentDescription="Send"
             android:src="@android:drawable/ic_menu_send"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="6dp"/>
+            android:padding="6dp"
+            app:tint="@color/colorPrimary" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

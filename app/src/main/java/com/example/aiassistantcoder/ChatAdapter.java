@@ -5,7 +5,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log; // <-- debugger
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,6 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.graphics.Typeface;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -23,20 +24,28 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.SerializedName;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
+import com.google.gson.annotations.SerializedName;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import android.graphics.Typeface;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Collections;
+import java.util.Comparator;
+
 
 import io.noties.markwon.Markwon;
 import io.noties.markwon.image.ImagesPlugin;
 
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
-    private static final String TAG = "ChatAdapter"; // <-- debugger
+    private static final String TAG = "ChatAdapter";
 
     private final List<Message> messages;
     private final Markwon markwon;
@@ -66,53 +75,80 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         return messages.size();
     }
 
+    // --------------------------------------------------
     // ViewHolder
+    // --------------------------------------------------
     static class ChatViewHolder extends RecyclerView.ViewHolder {
 
-        // Common bubble
+        // root + bubble
         private final LinearLayout messageRoot;
         private final RelativeLayout bubbleLayout;
         private final TextView messageText;
         private final ImageView messageImage;
 
-        // Legacy copy buttons for non-JSON text (optional)
+        // copy buttons for plain / markdown
         private final ImageButton copyButton;
         private final ImageButton copyCodeButton;
 
-        // Parsed JSON card (pretty UI)
+        // RUN INFO views
+        private final View runInfoContainer;
+        private final TextView runInfoTitle;
+        private final TextView pillLanguage;
+        private final TextView pillRuntime;
+        private final TextView pillEntrypoint;
+        private final TextView filesLabel;
+        private final LinearLayout filesList;
+
+        // parsed JSON card
         private final View parsedContainer;
         private final TextView badgeLanguage, badgeRuntime, parsedNotes, parsedCode;
         private final ImageButton btnCopyCode, btnExpandCode;
         private final View codeFade;
 
-        // Raw JSON card (pretty-printed)
+        // raw JSON card
         private final View jsonContainer;
         private final TextView jsonText;
         private final ImageButton btnCopyJson, btnExpandJson;
 
+        // meta-line matcher for pretty-for-chat output
+        private static final Pattern META_LINE =
+                Pattern.compile("^\\*\\*(Language|Runtime|Entrypoint|File):\\*\\*\\s*(.+)$",
+                        Pattern.CASE_INSENSITIVE);
+
         ChatViewHolder(@NonNull View itemView) {
             super(itemView);
 
-            messageRoot   = itemView.findViewById(R.id.message_root);
-            bubbleLayout  = itemView.findViewById(R.id.bubble_layout);
-            messageText   = itemView.findViewById(R.id.message_text);
-            messageImage  = itemView.findViewById(R.id.message_image);
+            messageRoot = itemView.findViewById(R.id.message_root);
+            bubbleLayout = itemView.findViewById(R.id.bubble_layout);
+            messageText = itemView.findViewById(R.id.message_text);
+            messageImage = itemView.findViewById(R.id.message_image);
 
-            copyButton     = itemView.findViewById(R.id.copy_button_bubble);
+            copyButton = itemView.findViewById(R.id.copy_button_bubble);
             copyCodeButton = itemView.findViewById(R.id.copy_code_button);
 
-            parsedContainer = itemView.findViewById(R.id.parsed_container);
-            badgeLanguage   = itemView.findViewById(R.id.badge_language);
-            badgeRuntime    = itemView.findViewById(R.id.badge_runtime);
-            parsedNotes     = itemView.findViewById(R.id.parsed_notes);
-            parsedCode      = itemView.findViewById(R.id.parsed_code);
-            btnCopyCode     = itemView.findViewById(R.id.btn_copy_code);
-            btnExpandCode   = itemView.findViewById(R.id.btn_expand_code);
-            codeFade        = itemView.findViewById(R.id.code_fade);
+            // run info
+            runInfoContainer = itemView.findViewById(R.id.run_info_container);
+            runInfoTitle = itemView.findViewById(R.id.run_info_title);
+            pillLanguage = itemView.findViewById(R.id.pill_language);
+            pillRuntime = itemView.findViewById(R.id.pill_runtime);
+            pillEntrypoint = itemView.findViewById(R.id.pill_entrypoint);
+            filesLabel = itemView.findViewById(R.id.run_info_files_label);
+            filesList = itemView.findViewById(R.id.run_info_files_list);
 
+            // parsed JSON card
+            parsedContainer = itemView.findViewById(R.id.parsed_container);
+            badgeLanguage = itemView.findViewById(R.id.badge_language);
+            badgeRuntime = itemView.findViewById(R.id.badge_runtime);
+            parsedNotes = itemView.findViewById(R.id.parsed_notes);
+            parsedCode = itemView.findViewById(R.id.parsed_code);
+            btnCopyCode = itemView.findViewById(R.id.btn_copy_code);
+            btnExpandCode = itemView.findViewById(R.id.btn_expand_code);
+            codeFade = itemView.findViewById(R.id.code_fade);
+
+            // raw JSON card
             jsonContainer = itemView.findViewById(R.id.json_container);
-            jsonText      = itemView.findViewById(R.id.json_text);
-            btnCopyJson   = itemView.findViewById(R.id.btn_copy_json);
+            jsonText = itemView.findViewById(R.id.json_text);
+            btnCopyJson = itemView.findViewById(R.id.btn_copy_json);
             btnExpandJson = itemView.findViewById(R.id.btn_expand_json);
         }
 
@@ -120,18 +156,17 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             final boolean isUser = "user".equals(message.getRole());
             final String text = message.getText() == null ? "" : message.getText();
 
-            // debugger
             Log.d(TAG, "bind(): role=" + message.getRole()
                     + " textLen=" + text.length()
                     + " hasImage=" + (message.getImageUri() != null));
 
-            // Align/color bubble
+            // alignment + bubble bg
             messageRoot.setGravity(isUser ? Gravity.END : Gravity.START);
             bubbleLayout.setBackgroundResource(isUser
                     ? R.drawable.bg_chat_bubble_user
                     : R.drawable.bg_chat_bubble_ai);
 
-            // Image (if any)
+            // image (if present)
             if (message.getImageUri() != null) {
                 messageImage.setVisibility(View.VISIBLE);
                 Glide.with(itemView.getContext())
@@ -141,44 +176,52 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 messageImage.setVisibility(View.GONE);
             }
 
-            // Try extract JSON from model replies only
+            // JSON extraction (only assistant messages)
             String json = (!isUser) ? extractFirstJson(text) : null;
-
-            // debugger
             if (!isUser) {
                 Log.d(TAG, "bind(): extracted JSON=" + (json == null ? "null" : ("len=" + json.length())));
             }
 
             if (!isUser && !TextUtils.isEmpty(json)) {
-                // First try to parse into a structured payload (Language/Runtime/Code/Notes)
+                // structured payload path
+                hideRunInfo();
                 AiPayload payload = tryParsePayload(json);
-
-                // debugger
                 Log.d(TAG, "bind(): payload parsed=" + (payload != null));
 
                 if (payload != null) {
                     showParsedCard(payload);
                 } else {
-                    // If it wasn't valid JSON (or unexpected shape), show raw pretty JSON
                     showRawJsonCard(json);
                 }
 
             } else {
-                // Default markdown / plain text path
+                // normal markdown / plain text path
                 parsedContainer.setVisibility(View.GONE);
                 jsonContainer.setVisibility(View.GONE);
                 messageText.setVisibility(View.VISIBLE);
 
                 if (isUser) {
-                    // debugger
-                    Log.d(TAG, "bind(): user message, plain text shown");
+                    hideRunInfo();
+                    Log.d(TAG, "bind(): user message, plain text");
                     messageText.setText(text);
                     copyButton.setVisibility(View.GONE);
                     copyCodeButton.setVisibility(View.GONE);
                 } else {
-                    // debugger
                     Log.d(TAG, "bind(): model message, markdown path");
-                    markwon.setMarkdown(messageText, text);
+
+                    // Extract run info from top of the message (if present)
+                    RunInfo runInfo = parseRunInfo(text);
+                    if (runInfo != null) {
+                        showRunInfo(runInfo);
+                    } else {
+                        hideRunInfo();
+                    }
+
+                    String display = (runInfo != null && runInfo.body != null)
+                            ? runInfo.body
+                            : text;
+
+                    markwon.setMarkdown(messageText, display);
 
                     copyButton.setVisibility(View.VISIBLE);
                     copyButton.setOnClickListener(v ->
@@ -196,11 +239,205 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             }
         }
 
-        // ----------------------------------------
-        // UI branches
-        // ----------------------------------------
+        // --------------------------------------------------
+        // RUN INFO helpers
+        // --------------------------------------------------
+
+        /** Parsed metadata from pretty-for-chat text. */
+        static class RunInfo {
+            String language;
+            String runtime;
+            String entrypoint;
+            List<String> files = new ArrayList<>();
+            String body; // markdown without the meta lines
+        }
+
+        /** Parse Language/Runtime/Entrypoint/File lines and return remaining body. */
+        private RunInfo parseRunInfo(String input) {
+            if (input == null || input.isEmpty()) return null;
+
+            String[] lines = input.split("\\r?\\n");
+            RunInfo info = new RunInfo();
+            StringBuilder body = new StringBuilder();
+            boolean sawMeta = false;
+
+            for (String line : lines) {
+                String trimmed = line.trim();
+                Matcher m = META_LINE.matcher(trimmed);
+                if (m.find()) {
+                    sawMeta = true;
+                    String label = m.group(1).toLowerCase();
+                    String value = m.group(2).trim();
+
+                    switch (label) {
+                        case "language":
+                            info.language = value;
+                            break;
+                        case "runtime":
+                            info.runtime = value;
+                            break;
+                        case "entrypoint":
+                            info.entrypoint = value;
+                            break;
+                        case "file":
+                            info.files.add(value);
+                            break;
+                    }
+                } else {
+                    body.append(line).append('\n');
+                }
+            }
+
+            if (!sawMeta) return null;
+
+            info.body = body.toString().trim();
+            return info;
+        }
+
+        private void showRunInfo(RunInfo info) {
+            runInfoContainer.setVisibility(View.VISIBLE);
+            runInfoTitle.setVisibility(View.VISIBLE);
+
+            Context ctx = itemView.getContext();
+
+            // LANGUAGE pill
+            if (!TextUtils.isEmpty(info.language)) {
+                pillLanguage.setVisibility(View.VISIBLE);
+                pillLanguage.setText(info.language);
+                stylePill(
+                        pillLanguage,
+                        R.color.pillBlueBg,     // soft blue bg
+                        R.color.pillBlueText    // deep blue text
+                );
+            } else {
+                pillLanguage.setVisibility(View.GONE);
+            }
+
+// RUNTIME pill
+            if (!TextUtils.isEmpty(info.runtime)) {
+                pillRuntime.setVisibility(View.VISIBLE);
+                pillRuntime.setText(info.runtime);
+                stylePill(
+                        pillRuntime,
+                        R.color.pillPurpleBg,   // soft purple bg
+                        R.color.pillPurpleText  // strong purple text
+                );
+            } else {
+                pillRuntime.setVisibility(View.GONE);
+            }
+
+// ENTRYPOINT pill
+            if (!TextUtils.isEmpty(info.entrypoint)) {
+                pillEntrypoint.setVisibility(View.VISIBLE);
+                pillEntrypoint.setText(info.entrypoint);
+                stylePill(
+                        pillEntrypoint,
+                        R.color.pillGreenBg,    // soft green bg
+                        R.color.pillGreenText   // dark green text
+                );
+            } else {
+                pillEntrypoint.setVisibility(View.GONE);
+            }
+
+            // FILES
+            filesList.removeAllViews();
+
+            if (info.files != null && !info.files.isEmpty()) {
+                filesLabel.setVisibility(View.VISIBLE);
+
+                FileNode root = buildFileTree(info.files);
+                renderTree(root, "", true, itemView.getContext());
+
+            } else {
+                filesLabel.setVisibility(View.GONE);
+            }
+        }
+
+        private void renderTree(FileNode node, String prefix, boolean last, Context ctx) {
+            List<FileNode> children = new ArrayList<>(node.children.values());
+
+            // Sort: folders first, then files alphabetically
+            Collections.sort(children, (a, b) -> {
+                if (a.isFile && !b.isFile) return 1;
+                if (!a.isFile && b.isFile) return -1;
+                return a.name.compareToIgnoreCase(b.name);
+            });
+
+            int count = children.size();
+            for (int i = 0; i < count; i++) {
+                FileNode child = children.get(i);
+                boolean isLast = (i == count - 1);
+
+                String branch = isLast ? "└── " : "├── ";
+                String line = prefix + branch + child.name + (child.isFile ? "" : "/");
+
+                TextView tv = new TextView(ctx);
+                tv.setText(line);
+                tv.setTextSize(11f);
+                tv.setTypeface(
+                        Typeface.MONOSPACE,
+                        child.isFile ? Typeface.NORMAL : Typeface.BOLD
+                );
+
+                // Folder color highlight
+                tv.setTextColor(ctx.getColor(
+                        child.isFile ? R.color.colorOnPrimary : R.color.colorOnPrimary
+                ));
+
+                filesList.addView(tv);
+
+                // Recursion
+                if (!child.isFile) {
+                    String newPrefix = prefix + (isLast ? "    " : "│   ");
+                    renderTree(child, newPrefix, isLast, ctx);
+                }
+            }
+        }
+
+        private FileNode buildFileTree(List<String> files) {
+            FileNode root = new FileNode("", false);
+
+            for (String path : files) {
+                if (path == null || path.trim().isEmpty()) continue;
+
+                String[] parts = path.split("/");
+                FileNode current = root;
+
+                for (int i = 0; i < parts.length; i++) {
+                    String part = parts[i];
+                    boolean isFile = (i == parts.length - 1);
+
+                    // Create child if missing
+                    current.children.putIfAbsent(part,
+                            new FileNode(part, isFile));
+
+                    current = current.children.get(part);
+                }
+            }
+
+            return root;
+        }
+
+        private void stylePill(TextView pill, int backgroundColorRes, int textColorRes) {
+            Context ctx = itemView.getContext();
+            pill.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(
+                            ctx.getResources().getColor(backgroundColorRes)
+                    )
+            );
+            pill.setTextColor(ctx.getResources().getColor(textColorRes));
+        }
+
+
+        private void hideRunInfo() {
+            runInfoContainer.setVisibility(View.GONE);
+            filesList.removeAllViews();
+        }
+
+        // --------------------------------------------------
+        // UI branches for JSON payloads
+        // --------------------------------------------------
         private void showParsedCard(AiPayload p) {
-            // debugger
             Log.d(TAG, "showParsedCard(): lang=" + p.language
                     + " runtime=" + p.runtime
                     + " codeLen=" + (p.code == null ? 0 : p.code.length())
@@ -209,13 +446,13 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             parsedContainer.setVisibility(View.VISIBLE);
             jsonContainer.setVisibility(View.GONE);
             messageText.setVisibility(View.GONE);
+            hideRunInfo();
 
             String lang = safe(p.language);
-            String rt   = safe(p.runtime);
+            String rt = safe(p.runtime);
             String notes = safe(p.notes);
             if (notes.isEmpty()) notes = safe(p.runnerHint);
 
-            // Badge text logic
             if (!rt.isEmpty() && !lang.toLowerCase().contains(rt.toLowerCase())) {
                 badgeLanguage.setText("Language: " + lang);
                 badgeRuntime.setText("Runtime: " + rt);
@@ -227,7 +464,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
             parsedNotes.setText(notes.isEmpty() ? "No notes provided." : notes);
 
-            // Collapsible code
             String code = safe(p.code);
             parsedCode.setText(code);
 
@@ -239,7 +475,8 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             boolean tooLong = countLines(code) > 16;
             parsedCode.setMaxLines(tooLong ? 16 : Integer.MAX_VALUE);
             codeFade.setVisibility(tooLong ? View.VISIBLE : View.GONE);
-            btnExpandCode.setImageResource(tooLong ? R.drawable.ic_expand_more_24 : R.drawable.ic_expand_less_24);
+            btnExpandCode.setImageResource(
+                    tooLong ? R.drawable.ic_expand_more_24 : R.drawable.ic_expand_less_24);
             btnExpandCode.setContentDescription(itemView.getContext()
                     .getString(tooLong ? R.string.expand : R.string.collapse));
 
@@ -249,12 +486,14 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                     parsedCode.setMaxLines(16);
                     codeFade.setVisibility(View.VISIBLE);
                     btnExpandCode.setImageResource(R.drawable.ic_expand_more_24);
-                    btnExpandCode.setContentDescription(itemView.getContext().getString(R.string.expand));
+                    btnExpandCode.setContentDescription(itemView.getContext()
+                            .getString(R.string.expand));
                 } else {
                     parsedCode.setMaxLines(Integer.MAX_VALUE);
                     codeFade.setVisibility(View.GONE);
                     btnExpandCode.setImageResource(R.drawable.ic_expand_less_24);
-                    btnExpandCode.setContentDescription(itemView.getContext().getString(R.string.collapse));
+                    btnExpandCode.setContentDescription(itemView.getContext()
+                            .getString(R.string.collapse));
                 }
             });
 
@@ -263,16 +502,14 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         }
 
         private void showRawJsonCard(String json) {
-            // debugger
             Log.d(TAG, "showRawJsonCard(): rawJsonLen=" + (json == null ? 0 : json.length()));
 
             parsedContainer.setVisibility(View.GONE);
             jsonContainer.setVisibility(View.VISIBLE);
             messageText.setVisibility(View.GONE);
+            hideRunInfo();
 
             String pretty = prettyJson(json);
-
-            // debugger
             Log.d(TAG, "showRawJsonCard(): prettyJsonLen=" + pretty.length());
 
             jsonText.setText(pretty);
@@ -284,26 +521,29 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             btnExpandJson.setOnClickListener(v -> {
                 boolean expanded = jsonText.getMaxLines() == Integer.MAX_VALUE;
                 jsonText.setMaxLines(expanded ? 14 : Integer.MAX_VALUE);
-                btnExpandJson.setImageResource(expanded ? R.drawable.ic_expand_more_24 : R.drawable.ic_expand_less_24);
+                btnExpandJson.setImageResource(
+                        expanded ? R.drawable.ic_expand_more_24 : R.drawable.ic_expand_less_24);
                 btnExpandJson.setContentDescription(v.getContext()
                         .getString(expanded ? R.string.expand : R.string.collapse));
             });
         }
 
         private static void copyToClipboard(Context ctx, String s, String toast) {
-            ClipboardManager cm = (ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipboardManager cm =
+                    (ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE);
             cm.setPrimaryClip(ClipData.newPlainText("copied", s));
             Toast.makeText(ctx, toast, Toast.LENGTH_SHORT).show();
         }
 
-        /** Find first fenced ```json ... ``` or a balanced {…}/[…] block. */
-        /** Find first real JSON: either ```json ... ``` or text that actually starts with { or [. */
+        // --------------------------------------------------
+        // JSON helpers
+        // --------------------------------------------------
         private String extractFirstJson(String s) {
             if (s == null) return null;
 
             Log.d(TAG, "extractFirstJson(): inputLen=" + s.length());
 
-            // 1) explicit fenced JSON wins
+            // fenced ```json
             int fenceStart = s.indexOf("```json");
             if (fenceStart == -1) fenceStart = s.indexOf("```JSON");
             if (fenceStart != -1) {
@@ -311,39 +551,49 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 int fenceEnd = s.indexOf("```", codeStart + 1);
                 if (codeStart != -1 && fenceEnd != -1) {
                     String fenced = s.substring(codeStart + 1, fenceEnd).trim();
-                    Log.d(TAG, "extractFirstJson(): found fenced JSON, len=" + fenced.length());
+                    Log.d(TAG, "extractFirstJson(): fenced JSON len=" + fenced.length());
                     return fenced;
                 }
             }
 
-            // 2) if the WHOLE message actually starts with { or [, treat as json
+            // whole message is JSON
             String trimmed = s.trim();
             if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
                 int end = findMatchingJsonEnd(trimmed, 0);
                 if (end != -1) {
                     String result = trimmed.substring(0, end + 1).trim();
-                    Log.d(TAG, "extractFirstJson(): found top-level JSON, len=" + result.length());
+                    Log.d(TAG, "extractFirstJson(): top-level JSON len=" + result.length());
                     return result;
                 }
             }
 
-            // 3) otherwise, do NOT try to pull JSON from the middle of markdown/code
-            Log.d(TAG, "extractFirstJson(): no real JSON detected, returning null");
+            Log.d(TAG, "extractFirstJson(): no JSON detected");
             return null;
         }
 
-
         private int findMatchingJsonEnd(String text, int start) {
-            int depth = 0; boolean inStr = false; char quote = 0; boolean esc = false;
+            int depth = 0;
+            boolean inStr = false;
+            char quote = 0;
+            boolean esc = false;
+
             for (int i = start; i < text.length(); i++) {
                 char c = text.charAt(i);
                 if (inStr) {
-                    if (esc) esc = false;
-                    else if (c == '\\') esc = true;
-                    else if (c == quote) inStr = false;
+                    if (esc) {
+                        esc = false;
+                    } else if (c == '\\') {
+                        esc = true;
+                    } else if (c == quote) {
+                        inStr = false;
+                    }
                     continue;
                 }
-                if (c == '"' || c == '\'') { inStr = true; quote = c; continue; }
+                if (c == '"' || c == '\'') {
+                    inStr = true;
+                    quote = c;
+                    continue;
+                }
                 if (c == '{' || c == '[') depth++;
                 else if (c == '}' || c == ']') {
                     depth--;
@@ -354,15 +604,16 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         }
 
         private String prettyJson(String raw) {
-            // normalize curly quotes & trailing commas
             String t = raw.replace('“', '"').replace('”', '"').replace('’', '\'');
             t = t.replaceAll(",(\\s*[}\\]])", "$1");
             try {
                 JsonElement el = JsonParser.parseString(t);
-                Gson g = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+                Gson g = new GsonBuilder()
+                        .setPrettyPrinting()
+                        .disableHtmlEscaping()
+                        .create();
                 return g.toJson(el);
             } catch (Exception e) {
-                // debugger
                 Log.w(TAG, "prettyJson(): failed to parse, returning raw", e);
                 return raw;
             }
@@ -383,7 +634,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             return n;
         }
 
-        private static String safe(String s) { return s == null ? "" : s; }
+        private static String safe(String s) {
+            return s == null ? "" : s;
+        }
 
         private AiPayload tryParsePayload(String json) {
             try {
@@ -397,8 +650,8 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 AiPayload p = new AiPayload();
 
                 p.language = obj.has("language") ? obj.get("language").getAsString() : "";
-                p.runtime  = obj.has("runtime")  ? obj.get("runtime").getAsString()  : "";
-                p.notes    = obj.has("notes")    ? obj.get("notes").getAsString()    : "";
+                p.runtime = obj.has("runtime") ? obj.get("runtime").getAsString() : "";
+                p.notes = obj.has("notes") ? obj.get("notes").getAsString() : "";
 
                 if (obj.has("files") && obj.get("files").isJsonArray()
                         && obj.get("files").getAsJsonArray().size() > 0) {
@@ -406,9 +659,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                     JsonObject f0 = obj.get("files").getAsJsonArray()
                             .get(0).getAsJsonObject();
 
-                    String path     = f0.has("path")     ? f0.get("path").getAsString()     : "";
+                    String path = f0.has("path") ? f0.get("path").getAsString() : "";
                     String filename = f0.has("filename") ? f0.get("filename").getAsString() : "";
-                    String content  = f0.has("content")  ? f0.get("content").getAsString()  : "";
+                    String content = f0.has("content") ? f0.get("content").getAsString() : "";
 
                     p.code = content != null ? content : "";
                     p.filePath = normalizeFilePath(path, filename);
@@ -417,21 +670,19 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                     p.code = obj.has("code") ? obj.get("code").getAsString() : "";
                 }
 
-                if ( (p.code == null || p.code.isEmpty())
+                if ((p.code == null || p.code.isEmpty())
                         && (p.language == null || p.language.isEmpty())
-                        && (p.runtime == null || p.runtime.isEmpty()) ) {
+                        && (p.runtime == null || p.runtime.isEmpty())) {
                     return null;
                 }
 
                 return p;
             } catch (Exception ignored) {
-                // debugger
                 Log.w(TAG, "tryParsePayload(): failed to parse JSON payload");
                 return null;
             }
         }
 
-        // normalize model paths like ".", "./", ".//", "/main.py" → to something clean
         private String normalizeFilePath(String path, String filename) {
             String p = path == null ? "" : path.trim();
             String f = filename == null ? "" : filename.trim();
@@ -440,9 +691,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 p = "";
             }
             while (p.startsWith("./")) p = p.substring(2);
-            while (p.startsWith("/"))  p = p.substring(1);
+            while (p.startsWith("/")) p = p.substring(1);
             while (f.startsWith("./")) f = f.substring(2);
-            while (f.startsWith("/"))  f = f.substring(1);
+            while (f.startsWith("/")) f = f.substring(1);
 
             if (p.isEmpty()) {
                 return f;
@@ -450,7 +701,18 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             return p + "/" + f;
         }
 
+        static class FileNode {
+            String name;
+            boolean isFile;
+            LinkedHashMap<String, FileNode> children = new LinkedHashMap<>();
+
+            FileNode(String name, boolean isFile) {
+                this.name = name;
+                this.isFile = isFile;
+            }
+        }
     }
+
 
     // DTO for parsed AI JSON
     static class AiPayload {
@@ -459,7 +721,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         String code;
         String notes;
         String filePath;
-        @SerializedName("runnerHint") String runnerHint;
+        @SerializedName("runnerHint")
+        String runnerHint;
     }
-
 }

@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.aiassistantcoder.ui.SnackBarApp;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -127,6 +128,7 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
     // Floating action button: create new project
     private void setupFab() {
         if (fabNewProject == null) return;
+
         fabNewProject.setOnClickListener(v -> {
             final EditText input = new EditText(requireContext());
             input.setHint("Project name");
@@ -143,20 +145,24 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
                                 .createEmptyProject(title, new ProjectRepository.ProjectSaveCallback() {
                                     @Override
                                     public void onSaved(String projectId) {
-                                        Toast.makeText(
-                                                requireContext(),
+
+                                        View root = requireActivity().findViewById(android.R.id.content);
+                                        SnackBarApp.INSTANCE.show(
+                                                root,
                                                 "Project created",
-                                                Toast.LENGTH_SHORT
-                                        ).show();
+                                                SnackBarApp.Type.SUCCESS
+                                        );
                                     }
 
                                     @Override
                                     public void onError(Exception e) {
-                                        Toast.makeText(
-                                                requireContext(),
+
+                                        View root = requireActivity().findViewById(android.R.id.content);
+                                        SnackBarApp.INSTANCE.show(
+                                                root,
                                                 "Error: " + e.getMessage(),
-                                                Toast.LENGTH_SHORT
-                                        ).show();
+                                                SnackBarApp.Type.ERROR
+                                        );
                                     }
                                 });
                     })
@@ -328,7 +334,11 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
                 .setPositiveButton("Save", (dialog, which) -> {
                     String newTitle = input.getText().toString().trim();
                     if (newTitle.isEmpty()) {
-                        Toast.makeText(requireContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
+                        SnackBarApp.INSTANCE.show(
+                                requireActivity().findViewById(android.R.id.content),
+                                "Title cannot be empty",
+                                SnackBarApp.Type.WARNING
+                        );
                         adapter.notifyItemChanged(position); // snap row back
                         return;
                     }
@@ -342,15 +352,22 @@ public class ProjectsFragment extends Fragment implements ProjectRepository.Proj
                             .saveProjectToFirestore(project, new ProjectRepository.ProjectSaveCallback() {
                                 @Override
                                 public void onSaved(String projectId) {
-                                    Toast.makeText(requireContext(), "Project renamed", Toast.LENGTH_SHORT).show();
+                                    SnackBarApp.INSTANCE.show(
+                                            requireActivity().findViewById(android.R.id.content),
+                                            "Project Renamed",
+                                            SnackBarApp.Type.SUCCESS
+                                    );
+
                                 }
 
                                 @Override
                                 public void onError(Exception e) {
-                                    Toast.makeText(requireContext(),
+                                    SnackBarApp.INSTANCE.show(
+                                            requireActivity().findViewById(android.R.id.content),
                                             "Rename failed: " + e.getMessage(),
-                                            Toast.LENGTH_SHORT
-                                    ).show();
+                                            SnackBarApp.Type.ERROR
+                                    );
+
                                 }
                             });
                 })

@@ -18,10 +18,10 @@
     <color name="colorOnBackground">#1A1A1A</color>
     <color name="colorOnSurface">#1A1A1A</color>
     <color name="colorOnPrimary">#FFFFFF</color>
-    <color name="colorHint">#616A80</color>
+    <color name="colorHint">#1A1A1A</color>
 
     <!-- Outline / Muted -->
-    <color name="colorOutline">#C2C7D0</color>
+    <color name="colorOutline">#1A1A1A</color>
 
     <!-- Info (blue/purple) -->
     <color name="colorSecondary">#673AB7</color>         <!-- purple -->
@@ -31,5 +31,28 @@
     <!-- Error -->
     <color name="colorError">#D32F2F</color>
     <color name="colorErrorContainer">#FFCDD2</color>
+
+    <color name="snackbar_error">#F44336</color>     <!-- red -->
+    <color name="snackbar_warning">#FF9800</color>   <!-- orange -->
+    <color name="snackbar_info">#2196F3</color>      <!-- blue -->
+    <color name="snackbar_success">#4CAF50</color>   <!-- green -->
+
+    <!--  BEAUTIFUL PILL COLORS       -->
+    <color name="pillBlueBg">#E0F2FE</color>      <!-- Soft cyan background -->
+    <color name="pillBlueText">#0369A1</color>    <!-- Deep cyan text -->
+
+    <color name="pillPurpleBg">#F3E8FF</color>    <!-- Soft lavender -->
+    <color name="pillPurpleText">#7E22CE</color>  <!-- Strong purple -->
+
+    <color name="pillGreenBg">#D1FAE5</color>     <!-- Soft mint green -->
+    <color name="pillGreenText">#065F46</color>   <!-- Dark emerald -->
+
+    <color name="pillAmberBg">#FEF3C7</color>     <!-- Soft gold -->
+    <color name="pillAmberText">#B45309</color>   <!-- Warm amber -->
+
+    <!-- Soft Gray pill (neutral) -->
+    <color name="pillGrayBg">#F3F4F6</color>      <!-- Clean cool gray -->
+    <color name="pillGrayText">#374151</color>    <!-- Slate text -->
+
 
 </resources>
