@@ -1,299 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Pocket Coder</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root {
-      --bg: #0f172a;
-      --card-bg: #ffffff;
-      --primary: #3d5afe;
-      --primary-soft: #e3f2fd;
-      --accent: #673ab7;
-      --text-main: #0b1020;
-      --text-muted: #64748b;
-      --border-subtle: #e2e8f0;
-      --radius-xl: 24px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pocket Coder</title>
 
-    * {
-      box-sizing: border-box;
-    }
+<style>
+  :root {
+    --bg: #0A0B13;
+    --surface: #10121F;
+    --surface-variant: #151728;
 
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 32px 16px 40px;
-      background: radial-gradient(circle at top left, #1e293b, #020617);
-      color: #f8fafc;
-      display: flex;
-      min-height: 100vh;
-      align-items: center;
-      justify-content: center;
-    }
+    --primary: #3D5AFE;
+    --primary-light: #536DFE;
+    --primary-dark: #283593;
+    --primary-accent: #2979FF;
 
-    .page {
-      width: 100%;
-      max-width: 900px;
-    }
+    --text-main: #ECEFF4;
+    --text-muted: #AEB6C8;
+    --on-primary: #FFFFFF;
 
-    .card {
-      background: var(--card-bg);
-      border-radius: var(--radius-xl);
-      padding: 32px 24px 28px;
-      margin: 0 auto;
-      max-width: 780px;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
-      border: 1px solid rgba(148, 163, 184, 0.4);
-    }
+    --secondary: #673AB7;
+    --secondary-light: #7E57C2;
+    --secondary-variant: #5C6BC0;
 
-    .header-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #eef2ff;
-      color: #4f46e5;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
+    --outline: #5C6373;
+  }
 
-    h1 {
-      color: var(--primary);
-      font-size: 36px;
-      margin: 0 0 6px;
-      letter-spacing: 0.03em;
-    }
+  body{
+    background: var(--bg);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color: var(--text-main);
+    margin:0;
+    display:flex;
+    justify-content:center;
+    padding:60px 16px;
+  }
 
-    h2 {
-      color: var(--accent);
-      font-size: 20px;
-      margin: 0 0 16px;
-      font-weight: 500;
-    }
+  .wrapper{
+    width:100%;
+    max-width:1100px;
+    text-align:left;
+  }
 
-    .subtitle {
-      color: var(--text-muted);
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
+  .card{
+    background: var(--surface);
+    border-radius:26px;
+    padding:60px 55px;
+    display:grid;
+    grid-template-columns:1.4fr 1fr;
+    gap:60px;
+    box-shadow:0 0 60px rgba(0,0,0,.45);
+  }
 
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-      gap: 28px;
-      align-items: center;
-    }
+  @media(max-width:900px){
+    .card{ grid-template-columns:1fr; }
+  }
 
-    @media (max-width: 720px) {
-      .card {
-        padding: 24px 18px 22px;
-      }
+  .badge{
+    display:inline-block;
+    background:rgba(61,90,254,0.15);
+    color:var(--primary-light);
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:600;
+    margin-bottom:14px;
+  }
 
-      .layout {
-        grid-template-columns: minmax(0, 1fr);
-      }
+  h1{ font-size:44px; font-weight:700; margin:0 0 8px; }
+  h2{ font-size:20px; font-weight:400; opacity:.8; margin-top:0; }
 
-      h1 {
-        font-size: 30px;
-      }
+  p{ line-height:1.6; font-size:15.8px; }
 
-      h2 {
-        font-size: 18px;
-      }
-    }
+  .tags{
+    display:flex; flex-wrap:wrap; gap:9px;
+    margin:22px 0 28px;
+  }
 
-    .section {
-      line-height: 1.6;
-      color: var(--text-main);
-      font-size: 15px;
-    }
+  .tags span{
+    background:var(--surface-variant);
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:13px;
+    color:var(--text-muted);
+    border:1px solid rgba(255,255,255,0.05);
+  }
 
-    .stack {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:14px 28px;
+    background:linear-gradient(90deg, var(--primary) 0%, var(--secondary-variant) 100%);
+    color:#fff;
+    border-radius:12px;
+    font-weight:600;
+    font-size:15px;
+    text-decoration:none;
+    box-shadow:0 0 35px rgba(61,90,254,.35);
+    transition:.2s;
+  }
 
-    .pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 10px;
-    }
+  .btn:hover{ opacity:.9; transform:translateY(-1px); }
 
-    .pill {
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: var(--primary-soft);
-      color: #0b3c8a;
-      font-size: 12px;
-      font-weight: 500;
-    }
+  .beta-note{ margin-top:8px; font-size:13px; color:var(--text-muted); }
 
-    .btn-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      margin-top: 16px;
-    }
+.qr-box{
+  background: var(--surface-variant);
+  border-radius: 22px;
+  padding: 35px 28px;
+  border: 1px solid rgba(255,255,255,0.05);
+  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 22px;
-      background: var(--primary);
-      color: #ffffff;
-      border-radius: 999px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      box-shadow: 0 14px 40px rgba(59, 130, 246, 0.4);
-      white-space: nowrap;
-    }
+  width: 100%;
+  max-width: 330px;
+  height: 330px;
+  margin: auto;
+  text-align: center;
+}
 
-    .btn-primary span {
-      font-size: 15px;
-    }
+.qr-title{
+  font-size: 12.5px;
+  letter-spacing:.14em;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  font-weight:600;
+  margin-bottom:16px;
+}
 
-    .btn-note {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
+.qr-image{
+  width: 150px;
+  height:150px;
+  background:#0D1A3A;
+  border-radius:20px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  margin:auto;
+}
 
-    .meta {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 6px;
-    }
+.qr-caption{
+  margin-top:14px;
+  font-size:13px;
+  color:var(--text-muted);
+  line-height:1.45;
+  max-width:230px;
+  margin-left:auto;margin-right:auto;
+}
 
-    /* QR code section */
-    .qr-section {
-      border-radius: 20px;
-      padding: 18px 16px;
-      background: #f8fafc;
-      border: 1px dashed var(--border-subtle);
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
 
-    .qr-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: #0f172a;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
+  footer{
+    text-align:center;
+    margin-top:50px;
+    font-size:13px;
+    color:var(--text-muted);
+  }
 
-    .qr-box {
-      width: 140px;
-      height: 140px;
-      border-radius: 18px;
-      border: 1px solid var(--border-subtle);
-      background: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      color: var(--text-muted);
-      padding: 8px;
-    }
-
-    .qr-caption {
-      font-size: 12px;
-      color: var(--text-muted);
-      max-width: 260px;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 18px;
-      font-size: 12px;
-      color: #cbd5f5;
-      opacity: 0.9;
-    }
-
-    .footer span {
-      opacity: 0.7;
-    }
-  </style>
+</style>
 </head>
+
 <body>
-  <div class="page">
-    <main class="card">
-      <div class="header-tag">
-        <span>🚀 Pocket Coder · Beta</span>
-      </div>
+<div class="wrapper">
+
+  <div class="card">
+
+    <div>
+      <div class="badge">🚀 Pocket Coder · Beta</div>
+
       <h1>Pocket Coder</h1>
       <h2>Code anywhere. Build instantly.</h2>
-      <p class="subtitle">
-        An AI-powered mobile IDE that lives in your pocket — generate, edit, and run code from your phone.
-      </p>
 
-      <section class="layout">
-        <!-- Left: copy + CTA -->
-        <div class="section">
-          <div class="stack">
-            <p>
-              Pocket Coder turns your phone into a mini dev environment. Write quick scripts, prototype ideas,
-              or ship fixes on the go — without opening your laptop.
-            </p>
-            <p>
-              Supports Python, JavaScript, TypeScript, Java, C/C++, and HTML/CSS with both console and live web previews.
-            </p>
-          </div>
+      <p>An AI-powered mobile IDE that lives in your pocket — generate, edit, and run code from your phone.</p>
+      <p>Pocket Coder turns your phone into a mini dev environment. Write scripts, prototype ideas or ship fixes — no laptop needed.</p>
 
-          <div class="pill-row">
-            <div class="pill">AI pair programmer</div>
-            <div class="pill">Mobile-first IDE</div>
-            <div class="pill">Console & web preview</div>
-          </div>
+      <p><strong>Supports:</strong> Python, JavaScript, TypeScript, Java, C/C++, HTML/CSS with console + live web output.</p>
 
-          <div class="btn-row">
-            <a
-              class="btn-primary"
-              href="https://docs.google.com/forms/d/e/1FAIpQLSeMFmMi0puP5mIcu-6umVjDPVHykEEKCPg6_XUroGR9RR8ZRw/viewform?usp=dialog"
-              target="_blank"
-            >
-              <span>Join the beta waitlist</span> →
-            </a>
-            <span class="btn-note">Free while in beta · Limited early access</span>
-          </div>
+      <div class="tags">
+        <span>AI pair programmer</span>
+        <span>Mobile-first IDE</span>
+        <span>Console & web preview</span>
+      </div>
 
-          <p class="meta">
-            <strong>Beta is still in development.</strong> Leave your details to get the APK as soon as it’s ready.
-          </p>
-        </div>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSeMFmMi0puP5mIcu-6umVjDPVHykEEKCPg6_XUroGR9RR8ZRw/viewform?usp=dialog"
+         target="_blank" class="btn">
+        Join the beta waitlist →
+      </a>
+      <p class="beta-note">Free while in beta · Limited early access</p>
+      <p style="margin-top:12px;"><b>Beta is still in development.</b>
+      Leave your details to get the APK when it’s ready.</p>
+    </div>
 
-        <!-- Right: QR template -->
-        <aside class="qr-section">
-          <div class="qr-title">Scan from your phone</div>
+    <div class="qr-box">
+      <div class="qr-title">SCAN FROM YOUR PHONE</div>
 
-          <div class="qr-box">
-            <!-- TEMPLATE: replace this with your QR image -->
-            <!-- Example: <img src="qr-beta.png" alt="QR code for Pocket Coder beta" width="140" height="140" /> -->
-            QR CODE<br />GOES HERE
-          </div>
+      <div class="qr-image">
+        <img src="qr.png" alt="Pocket Coder QR">
+      </div>
 
-          <p class="qr-caption">
-            Point your camera at the code to open the beta sign-up form instantly on your device.
-          </p>
-        </aside>
-      </section>
-    </main>
+      <p class="qr-caption">Point your camera at the code to open the beta sign-up instantly on your device.</p>
+    </div>
 
-    <footer class="footer">
-      Built by the Pocket Coder team · <span>2025</span>
-    </footer>
   </div>
+
+  <footer>Built by the Pocket Coder team · 2025</footer>
+</div>
 </body>
 </html>
