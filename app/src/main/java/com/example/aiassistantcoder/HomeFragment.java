@@ -47,9 +47,9 @@ import okhttp3.Response;
 
 public class HomeFragment extends Fragment {
 
-    private static final String MODEL = "gemini-flash-latest";
-    private static final String ENDPOINT =
-            "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
+    // Backend Gemini proxy endpoint
+    private static final String BACKEND_BASE_URL = "https://pocketcoder-backend.onrender.com";
+    private static final String GEMINI_PROXY_ENDPOINT = BACKEND_BASE_URL + "/gemini/generate";
 
     private static final String TAG = "HomeFragment";
 
@@ -225,7 +225,8 @@ public class HomeFragment extends Fragment {
         payload.add("contents", contents);
         payload.add("generationConfig", generationConfig);
 
-        String url = ENDPOINT + "?key=" + BuildConfig.GEMINI_API_KEY;
+        // We now call our backend proxy (no API key on device)
+        String url = GEMINI_PROXY_ENDPOINT;
 
         // debugger
         Log.d(TAG, "submitToGemini: final JSON payload -> " + gson.toJson(payload));

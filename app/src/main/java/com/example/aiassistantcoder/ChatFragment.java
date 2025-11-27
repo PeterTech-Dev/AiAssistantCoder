@@ -80,13 +80,19 @@ public class ChatFragment extends Fragment {
     private final Gson gson = new Gson();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    // Model/endpoint
-    private static final String MODEL = "gemini-flash-latest";
-    private static final String ENDPOINT =
-            "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent?key=";
+    // Backend Gemini proxy endpoint
+    private static final String BACKEND_BASE_URL = ApiConfig.BASE_URL;
+    private static final String GEMINI_PROXY_ENDPOINT = BACKEND_BASE_URL + "/gemini/generate";
+
 
     // Bus to the editor
     private AiUpdateViewModel aiBus;
+
+    public final class ApiConfig {
+        private ApiConfig() {}
+
+        public static final String BASE_URL = "https://pocketcoder-backend.onrender.com";
+    }
 
     // Image picker
     private final ActivityResultLauncher<Intent> pickImage = registerForActivityResult(
@@ -437,8 +443,9 @@ public class ChatFragment extends Fragment {
     // ---- REST call ----
     private String callGemini(GenerateContentRequest req) throws IOException {
         String bodyJson = gson.toJson(req);
+
         Request request = new Request.Builder()
-                .url(ENDPOINT + BuildConfig.GEMINI_API_KEY)
+                .url(GEMINI_PROXY_ENDPOINT)
                 .post(RequestBody.create(bodyJson, JSON))
                 .build();
 
@@ -447,10 +454,10 @@ public class ChatFragment extends Fragment {
 
             if (!resp.isSuccessful()) {
                 Log.e(TAG,
-                        "Gemini error " + resp.code() + ": " + resp.message()
+                        "Backend Gemini proxy error " + resp.code() + ": " + resp.message()
                                 + " | body=" + respBody);
                 return respBody.isEmpty()
-                        ? "Gemini returned HTTP " + resp.code() + " (" + resp.message() + ")"
+                        ? "Backend returned HTTP " + resp.code() + " (" + resp.message() + ")"
                         : respBody;
             }
 

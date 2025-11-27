@@ -1099,15 +1099,38 @@ public class CodeEditorFragment extends Fragment {
 
         exec.execute(() -> {
             try {
+                // 1) create project
                 JSONObject res = httpPostJson(liveBaseUrl + "/projects", new JSONObject());
                 String projectId = res.optString("projectId", null);
                 if (projectId == null) throw new RuntimeException("No projectId");
 
-                JSONObject fileReq = new JSONObject();
-                fileReq.put("path", "index.html");
-                fileReq.put("content", src);
-                httpPutJson(liveBaseUrl + "/projects/" + projectId + "/files", fileReq);
+                // 2) build files[] from your editor model
+                JSONArray filesArr = new JSONArray();
 
+                // include all files from the side panel
+                for (OpenFile f : availableFiles) {
+                    JSONObject jf = new JSONObject();
+                    jf.put("path", f.id != null ? f.id : f.name);
+                    jf.put("content", f.content != null ? f.content : "");
+                    filesArr.put(jf);
+                }
+
+                // optionally make sure index.html is present/overwritten
+                JSONObject mainFile = new JSONObject();
+                mainFile.put("path", "index.html");
+                mainFile.put("content", src);  // current editor content
+                filesArr.put(mainFile);
+
+                JSONObject bulkReq = new JSONObject();
+                bulkReq.put("files", filesArr);
+
+                // 3) send bulk upload
+                httpPostJson(
+                        liveBaseUrl + "/projects/" + projectId + "/files/bulk",
+                        bulkReq
+                );
+
+                // 4) preview
                 String preview = liveBaseUrl + "/preview/" + projectId + "/index.html";
                 consoleVM.setPreviewUrl(preview);
                 printToConsole("🌐 Preview: " + preview + "\n");
@@ -1116,6 +1139,7 @@ public class CodeEditorFragment extends Fragment {
             }
         });
     }
+
 
     // ---------- Live session helpers ----------
     private void connectLiveWebSocket(String wsUrl) {

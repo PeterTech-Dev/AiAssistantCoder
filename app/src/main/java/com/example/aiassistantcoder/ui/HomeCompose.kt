@@ -175,37 +175,10 @@ object HomeCompose {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)               // tweak this as you like
-                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                .drawWithContent {
-                    // 1) Draw original image
-                    drawContent()
-
-                    // 2) Compute where fade should start, measured from the *bottom*,
-                    //    so it behaves nicely no matter what height you choose
-                    val fadeHeightPx = fadeOffsetFromBottom.toPx()
-                    val maskTop = size.height - fadeHeightPx
-
-                    val maskBrush = Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color.Transparent,
-                            0.6f to Color.Transparent,
-                            1.0f to Color.Black
-                        )
-                    )
-
-                    // 3) Apply the mask only in the bottom strip
-                    clipRect(
-                        left = 0f,
-                        top = maskTop.coerceAtLeast(0f),
-                        right = size.width,
-                        bottom = size.height
-                    ) {
-                        drawRect(
-                            brush = maskBrush,
-                            blendMode = BlendMode.DstOut
-                        )
-                    }
-                }
+                .graphicsLayer(
+                    scaleX = 1.8f,
+                    scaleY = 1.8f,
+                    compositingStrategy = CompositingStrategy.Offscreen)
         )
     }
 }
