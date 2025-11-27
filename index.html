@@ -27,6 +27,10 @@
     --outline: #5C6373;
   }
 
+  * {
+    box-sizing: border-box;
+  }
+
   body{
     background: var(--bg);
     font-family: system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -34,7 +38,7 @@
     margin:0;
     display:flex;
     justify-content:center;
-    padding:60px 16px;
+    padding:32px 12px;
   }
 
   .wrapper{
@@ -46,15 +50,11 @@
   .card{
     background: var(--surface);
     border-radius:26px;
-    padding:60px 55px;
+    padding:28px 20px 32px;
     display:grid;
-    grid-template-columns:1.4fr 1fr;
-    gap:60px;
+    grid-template-columns:1fr;
+    gap:32px;
     box-shadow:0 0 60px rgba(0,0,0,.45);
-  }
-
-  @media(max-width:900px){
-    .card{ grid-template-columns:1fr; }
   }
 
   .badge{
@@ -63,26 +63,41 @@
     color:var(--primary-light);
     padding:6px 14px;
     border-radius:999px;
-    font-size:13px;
+    font-size:12px;
     font-weight:600;
-    margin-bottom:14px;
+    margin-bottom:10px;
   }
 
-  h1{ font-size:44px; font-weight:700; margin:0 0 8px; }
-  h2{ font-size:20px; font-weight:400; opacity:.8; margin-top:0; }
+  h1{
+    font-size:30px;
+    font-weight:700;
+    margin:0 0 6px;
+  }
 
-  p{ line-height:1.6; font-size:15.8px; }
+  h2{
+    font-size:18px;
+    font-weight:400;
+    opacity:.8;
+    margin-top:0;
+  }
+
+  p{
+    line-height:1.6;
+    font-size:14.8px;
+  }
 
   .tags{
-    display:flex; flex-wrap:wrap; gap:9px;
-    margin:22px 0 28px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:20px 0 24px;
   }
 
   .tags span{
     background:var(--surface-variant);
-    padding:6px 14px;
+    padding:6px 13px;
     border-radius:999px;
-    font-size:13px;
+    font-size:12px;
     color:var(--text-muted);
     border:1px solid rgba(255,255,255,0.05);
   }
@@ -91,86 +106,136 @@
     display:inline-flex;
     align-items:center;
     gap:8px;
-    padding:14px 28px;
+    padding:12px 22px;
     background:linear-gradient(90deg, var(--primary) 0%, var(--secondary-variant) 100%);
     color:#fff;
     border-radius:12px;
     font-weight:600;
-    font-size:15px;
+    font-size:14px;
     text-decoration:none;
     box-shadow:0 0 35px rgba(61,90,254,.35);
     transition:.2s;
+    margin-top:4px;
   }
 
-  .btn:hover{ opacity:.9; transform:translateY(-1px); }
+  .btn:hover{
+    opacity:.9;
+    transform:translateY(-1px);
+  }
 
-  .beta-note{ margin-top:8px; font-size:13px; color:var(--text-muted); }
-
-.qr-box{
-  background: var(--surface-variant);
-  border-radius: 22px;
-  padding: 35px 28px;
-  border: 1px solid rgba(255,255,255,0.05);
-  
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-
-  width: 100%;
-  max-width: 330px;
-  height: 330px;
-  margin: auto;
-  text-align: center;
-}
-
-.qr-title{
-  font-size: 12.5px;
-  letter-spacing:.14em;
-  color:var(--text-muted);
-  text-transform:uppercase;
-  font-weight:600;
-  margin-bottom:16px;
-}
-
-.qr-image{
-  width: 150px;
-  height:150px;
-  background:#0D1A3A;
-  border-radius:20px;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
-  margin:auto;
-}
-
-.qr-caption{
-  margin-top:14px;
-  font-size:13px;
-  color:var(--text-muted);
-  line-height:1.45;
-  max-width:230px;
-  margin-left:auto;margin-right:auto;
-}
-
-
-  footer{
-    text-align:center;
-    margin-top:50px;
-    font-size:13px;
+  .beta-note{
+    margin-top:8px;
+    font-size:12px;
     color:var(--text-muted);
   }
 
+  .qr-box{
+    background: var(--surface-variant);
+    border-radius: 22px;
+    padding: 22px 18px;
+    border: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .qr-title{
+    font-size: 11.5px;
+    letter-spacing:.14em;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    font-weight:600;
+    margin-bottom:14px;
+  }
+
+  .qr-image{
+    width: 140px;
+    height:140px;
+    background:#0D1A3A;
+    border-radius:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    margin:auto;
+  }
+
+  .qr-image img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+
+  .qr-caption{
+    margin-top:12px;
+    font-size:12px;
+    color:var(--text-muted);
+    line-height:1.45;
+    max-width:230px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  footer{
+    text-align:center;
+    margin-top:30px;
+    font-size:12px;
+    color:var(--text-muted);
+  }
+
+  @media (min-width:700px){
+    body{
+      padding:48px 20px;
+    }
+
+    .card{
+      padding:40px 40px 46px;
+      gap:40px;
+    }
+
+    h1{
+      font-size:36px;
+    }
+
+    h2{
+      font-size:20px;
+    }
+
+    p{
+      font-size:15.5px;
+    }
+
+    .qr-box{
+      max-width:300px;
+      padding:28px 22px;
+    }
+  }
+
+  @media (min-width:900px){
+    .card{
+      padding:60px 55px;
+      grid-template-columns:1.4fr 1fr;
+      gap:60px;
+    }
+
+    .qr-box{
+      max-width:330px;
+      height:330px;
+    }
+  }
 </style>
 </head>
 
 <body>
 <div class="wrapper">
-
   <div class="card">
-
     <div>
       <div class="badge">🚀 Pocket Coder · Beta</div>
-
       <h1>Pocket Coder</h1>
       <h2>Code anywhere. Build instantly.</h2>
 
@@ -190,20 +255,16 @@
         Join the beta waitlist →
       </a>
       <p class="beta-note">Free while in beta · Limited early access</p>
-      <p style="margin-top:12px;"><b>Beta is still in development.</b>
-      Leave your details to get the APK when it’s ready.</p>
+      <p style="margin-top:12px;"><b>Beta is still in development.</b> Leave your details to get the APK when it’s ready.</p>
     </div>
 
     <div class="qr-box">
       <div class="qr-title">SCAN FROM YOUR PHONE</div>
-
       <div class="qr-image">
         <img src="qr.png" alt="Pocket Coder QR">
       </div>
-
       <p class="qr-caption">Point your camera at the code to open the beta sign-up instantly on your device.</p>
     </div>
-
   </div>
 
   <footer>Built by the Pocket Coder team · 2025</footer>
